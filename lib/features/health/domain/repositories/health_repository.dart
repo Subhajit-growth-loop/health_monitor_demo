@@ -1,0 +1,48 @@
+import '../entities/daily_point.dart';
+import '../entities/health_metric_type.dart';
+import '../entities/health_record.dart';
+import '../entities/permission_state.dart';
+
+/// Contract the presentation layer depends on. The implementation orchestrates
+/// the acquisition (HealthKit / Health Connect), normalization, local
+/// persistence and synchronization layers, but callers never see any of that.
+abstract interface class HealthRepository {
+  /// Request platform read permission for the given metric types.
+  Future<HealthPermissionState> requestPermissions(
+      List<HealthMetricType> types);
+
+  /// Current permission state without prompting.
+  Future<HealthPermissionState> currentPermissions();
+
+  /// Pull new samples from the native platform, normalize + de-duplicate them,
+  /// and persist them locally tagged as pending-sync. Returns how many new
+  /// records were written.
+  Future<int> refreshFromPlatform();
+
+  /// The most recent records of a type, newest first (reads local DB only).
+  Future<List<HealthRecord>> recordsForType(
+    HealthMetricType type, {
+    int limit = 200,
+  });
+
+  /// Per-day aggregates for a type over the last [days] days.
+  Future<List<DailyPoint>> dailySeries(
+    HealthMetricType type, {
+    int days = 7,
+  });
+
+  /// Today's aggregated value for each metric type (sum/avg/latest as defined
+  /// by the metric).
+  Future<Map<HealthMetricType, double>> todaySummary();
+
+  /// How many local records are still awaiting backend confirmation.
+  Future<int> pendingCount();
+
+  /// Push all pending records to the backend and pull remote updates down.
+  /// Returns the number of records successfully synced (uploaded).
+  Future<int> synchronize();
+
+  /// A stream that fires whenever the local database changes, so the UI can
+  /// re-read its single source of truth.
+  Stream<void> watchChanges();
+}
