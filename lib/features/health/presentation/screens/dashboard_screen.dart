@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/entities/health_metric_type.dart';
 import '../../domain/entities/permission_state.dart';
@@ -11,6 +14,19 @@ import '../widgets/alert_banner.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/sync_status_bar.dart';
 import 'metric_detail_screen.dart';
+
+Future<void> _handleGrantPermission(WidgetRef ref, HealthPermissionState perms) async {
+  final anyDenied =
+      perms.grants.values.any((g) => g == PermissionGrant.denied);
+
+  // On iOS, once the user has denied, the OS will never show the dialog again.
+  // We must send them to system Settings instead.
+  if (Platform.isIOS && anyDenied) {
+    await launchUrl(Uri.parse('app-settings:'));
+    return;
+  }
+  await ref.read(permissionControllerProvider.notifier).requestAll();
+}
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -89,6 +105,8 @@ class DashboardScreen extends ConsumerWidget {
                           builder: (_) => MetricDetailScreen(type: type),
                         ),
                       ),
+                      onRequestPermission: () =>
+                          _handleGrantPermission(ref, perms),
                     ),
                 ],
               ),
