@@ -7,6 +7,7 @@ import '../../domain/entities/permission_state.dart';
 import '../providers/dashboard_providers.dart';
 import '../providers/permission_controller.dart';
 import '../providers/sync_controller.dart';
+import '../widgets/alert_banner.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/sync_status_bar.dart';
 import 'metric_detail_screen.dart';
@@ -52,7 +53,9 @@ class DashboardScreen extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
           children: [
             const SyncStatusBar(),
-            SizedBox(height: 20.h),
+            SizedBox(height: 12.h),
+            const AlertBanner(),
+            SizedBox(height: 8.h),
             if (!perms.anyGranted)
               _PermissionPrompt(
                 onGrant: () => ref

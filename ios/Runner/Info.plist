@@ -45,6 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Health Monitor reads your steps, heart rate, sleep, blood oxygen and active energy to show your health metrics and back them up.</string>
 	<key>NSHealthUpdateUsageDescription</key>
