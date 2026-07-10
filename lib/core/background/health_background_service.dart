@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
@@ -55,7 +57,14 @@ Future<void> _runHealthAlertCheck() async {
 
 /// Register the periodic background task. Safe to call multiple times —
 /// [ExistingWorkPolicy.keep] prevents duplicate scheduling.
+///
+/// Periodic tasks are only registered on Android. The workmanager 0.5.x iOS
+/// plugin does not implement `registerPeriodicTask` (added in 0.6.0), so calling
+/// it there throws `unhandledMethod`. On iOS the app instead relies on HealthKit
+/// background delivery configured in AppDelegate.swift to wake the app.
 Future<void> registerHealthAlertTask({bool debugMode = false}) async {
+  if (!Platform.isAndroid) return;
+
   await Workmanager().initialize(
     healthAlertDispatcher,
     isInDebugMode: debugMode,
