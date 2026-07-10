@@ -40,7 +40,7 @@ dependencies:
 
   # Background alerts
   flutter_local_notifications: ^18.0.0
-  workmanager: ^0.5.2
+  workmanager: ^0.6.0
   shared_preferences: ^2.3.0
 
 dev_dependencies:
