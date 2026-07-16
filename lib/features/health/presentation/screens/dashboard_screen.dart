@@ -15,9 +15,11 @@ import '../widgets/metric_card.dart';
 import '../widgets/sync_status_bar.dart';
 import 'metric_detail_screen.dart';
 
-Future<void> _handleGrantPermission(WidgetRef ref, HealthPermissionState perms) async {
-  final anyDenied =
-      perms.grants.values.any((g) => g == PermissionGrant.denied);
+Future<void> _handleGrantPermission(
+  WidgetRef ref,
+  HealthPermissionState perms,
+) async {
+  final anyDenied = perms.grants.values.any((g) => g == PermissionGrant.denied);
 
   // On iOS, once the user has denied, the OS will never show the dialog again.
   // We must send them to system Settings instead.
@@ -35,8 +37,8 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(todaySummaryProvider);
     final permsAsync = ref.watch(permissionControllerProvider);
-    final perms = permsAsync.valueOrNull ??
-        HealthPermissionState.allNotRequested();
+    final perms =
+        permsAsync.valueOrNull ?? HealthPermissionState.allNotRequested();
 
     return Scaffold(
       appBar: AppBar(
@@ -44,12 +46,14 @@ class DashboardScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Today',
-                style: TextStyle(
-                    fontSize: 20.sp, fontWeight: FontWeight.w700)),
-            Text('Your health at a glance',
-                style: TextStyle(
-                    fontSize: 12.sp, fontWeight: FontWeight.w400)),
+            Text(
+              'Today',
+              style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              'Your health at a glance',
+              style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w400),
+            ),
           ],
         ),
         actions: [
@@ -62,56 +66,59 @@ class DashboardScreen extends ConsumerWidget {
           SizedBox(width: 4.w),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(syncControllerProvider.notifier).refreshData(),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
-          children: [
-            const SyncStatusBar(),
-            SizedBox(height: 12.h),
-            const AlertBanner(),
-            SizedBox(height: 8.h),
-            if (!perms.anyGranted)
-              _PermissionPrompt(
-                onGrant: () => ref
-                    .read(permissionControllerProvider.notifier)
-                    .requestAll(),
-              ),
-            summary.when(
-              loading: () => Padding(
-                padding: EdgeInsets.only(top: 80.h),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Padding(
-                padding: EdgeInsets.only(top: 40.h),
-                child: Center(child: Text('Could not load data: $e')),
-              ),
-              data: (values) => GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12.r,
-                crossAxisSpacing: 12.r,
-                childAspectRatio: 1.12,
-                children: [
-                  for (final type in HealthMetricType.values)
-                    MetricCard(
-                      type: type,
-                      value: values[type] ?? 0,
-                      granted: perms.isGranted(type),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MetricDetailScreen(type: type),
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: () =>
+              ref.read(syncControllerProvider.notifier).refreshData(),
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
+            children: [
+              const SyncStatusBar(),
+              SizedBox(height: 12.h),
+              const AlertBanner(),
+              SizedBox(height: 8.h),
+              if (!perms.anyGranted)
+                _PermissionPrompt(
+                  onGrant: () => ref
+                      .read(permissionControllerProvider.notifier)
+                      .requestAll(),
+                ),
+              summary.when(
+                loading: () => Padding(
+                  padding: EdgeInsets.only(top: 80.h),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => Padding(
+                  padding: EdgeInsets.only(top: 40.h),
+                  child: Center(child: Text('Could not load data: $e')),
+                ),
+                data: (values) => GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12.r,
+                  crossAxisSpacing: 12.r,
+                  childAspectRatio: 1.12,
+                  children: [
+                    for (final type in HealthMetricType.values)
+                      MetricCard(
+                        type: type,
+                        value: values[type] ?? 0,
+                        granted: perms.isGranted(type),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MetricDetailScreen(type: type),
+                          ),
                         ),
+                        onRequestPermission: () =>
+                            _handleGrantPermission(ref, perms),
                       ),
-                      onRequestPermission: () =>
-                          _handleGrantPermission(ref, perms),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
