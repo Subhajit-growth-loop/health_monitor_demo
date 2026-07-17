@@ -11,6 +11,7 @@ class MetricCard extends StatelessWidget {
     required this.type,
     required this.value,
     required this.granted,
+    this.secondaryValue,
     this.onTap,
     this.onRequestPermission,
   });
@@ -18,6 +19,8 @@ class MetricCard extends StatelessWidget {
   final HealthMetricType type;
   final double value;
   final bool granted;
+  /// Diastolic value — only used when [type] is [HealthMetricType.bloodPressureSystolic].
+  final double? secondaryValue;
   final VoidCallback? onTap;
   final VoidCallback? onRequestPermission;
 
@@ -85,6 +88,37 @@ class MetricCard extends StatelessWidget {
                     ),
                     child: const Text('Grant Access'),
                   ),
+                ),
+              ] else if (type == HealthMetricType.bloodPressureSystolic &&
+                  secondaryValue != null) ...[
+                RichText(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text:
+                            '${Fmt.metricValue(type, value)}/${Fmt.metricValue(HealthMetricType.bloodPressureDiastolic, secondaryValue!)}',
+                        style: TextStyle(
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' ${type.unit}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'Sys / Dia',
+                  style: TextStyle(
+                      fontSize: 11.sp, color: scheme.onSurfaceVariant),
                 ),
               ] else
                 RichText(

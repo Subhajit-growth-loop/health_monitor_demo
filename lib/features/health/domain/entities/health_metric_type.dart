@@ -71,6 +71,25 @@ enum HealthMetricType {
     color: Color(0xFFD63031),
     aggregation: Aggregation.average,
     decimals: 0,
+  ),
+  bloodPressureSystolic(
+    id: 'bp_systolic',
+    label: 'Blood Pressure',
+    unit: 'mmHg',
+    icon: Icons.monitor_heart_rounded,
+    color: Color(0xFF6C5CE7),
+    aggregation: Aggregation.average,
+    decimals: 0,
+  ),
+  bloodPressureDiastolic(
+    id: 'bp_diastolic',
+    label: 'BP Diastolic',
+    unit: 'mmHg',
+    icon: Icons.monitor_heart_rounded,
+    color: Color(0xFF6C5CE7),
+    aggregation: Aggregation.average,
+    decimals: 0,
+    hiddenFromDashboard: true,
   );
 
   const HealthMetricType({
@@ -81,6 +100,7 @@ enum HealthMetricType {
     required this.color,
     required this.aggregation,
     required this.decimals,
+    this.hiddenFromDashboard = false,
   });
 
   final String id;
@@ -90,6 +110,7 @@ enum HealthMetricType {
   final Color color;
   final Aggregation aggregation;
   final int decimals;
+  final bool hiddenFromDashboard;
 
   static HealthMetricType fromId(String id) =>
       HealthMetricType.values.firstWhere((t) => t.id == id);

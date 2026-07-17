@@ -29,8 +29,10 @@ class HealthRepositoryImpl implements HealthRepository {
 
   // Cursors for incremental acquisition/sync. In-memory here; a real build
   // would persist these so restarts don't re-scan.
+  // 90-day initial window captures infrequent measurements (BP, weight, glucose)
+  // that may not have a reading in the last 7 days.
   DateTime _lastPlatformRead =
-      DateTime.now().subtract(const Duration(days: 7));
+      DateTime.now().subtract(const Duration(days: 90));
   DateTime _lastRemotePull =
       DateTime.now().subtract(const Duration(days: 30));
 

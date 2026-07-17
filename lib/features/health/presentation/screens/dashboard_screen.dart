@@ -178,10 +178,15 @@ class DashboardScreen extends ConsumerWidget {
                   crossAxisSpacing: 12.r,
                   childAspectRatio: 1.12,
                   children: [
-                    for (final type in HealthMetricType.values)
+                    for (final type in HealthMetricType.values
+                        .where((t) => !t.hiddenFromDashboard))
                       MetricCard(
                         type: type,
                         value: values[type] ?? 0,
+                        secondaryValue: type ==
+                                HealthMetricType.bloodPressureSystolic
+                            ? values[HealthMetricType.bloodPressureDiastolic]
+                            : null,
                         granted: perms.isGranted(type),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(

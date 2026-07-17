@@ -82,6 +82,12 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
       case HealthMetricType.bloodGlucose:
         return _everyMinutes(type, from, to, 120,
             () => 80 + _rng.nextInt(60), sources: const ['Health Connect']);
+      case HealthMetricType.bloodPressureSystolic:
+        return _everyMinutes(type, from, to, 240,
+            () => 110 + _rng.nextInt(30), sources: const ['Health Connect']);
+      case HealthMetricType.bloodPressureDiastolic:
+        return _everyMinutes(type, from, to, 240,
+            () => 70 + _rng.nextInt(20), sources: const ['Health Connect']);
     }
   }
 

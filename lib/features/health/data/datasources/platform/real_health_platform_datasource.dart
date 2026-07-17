@@ -36,9 +36,16 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         HealthMetricType.heartRate => [HealthDataType.HEART_RATE],
         HealthMetricType.bloodOxygen => [HealthDataType.BLOOD_OXYGEN],
         HealthMetricType.activeEnergy => [HealthDataType.ACTIVE_ENERGY_BURNED],
-        HealthMetricType.sleep => [HealthDataType.SLEEP_ASLEEP],
+        // Health Connect devices write SLEEP_SESSION (total duration); SLEEP_ASLEEP
+        // is a sub-stage record that most devices never populate separately.
+        // HealthKit has no SLEEP_SESSION — SLEEP_ASLEEP is the correct type there.
+        HealthMetricType.sleep => Platform.isAndroid
+            ? [HealthDataType.SLEEP_SESSION]
+            : [HealthDataType.SLEEP_ASLEEP],
         HealthMetricType.weight => [HealthDataType.WEIGHT],
         HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
+        HealthMetricType.bloodPressureSystolic => [HealthDataType.BLOOD_PRESSURE_SYSTOLIC],
+        HealthMetricType.bloodPressureDiastolic => [HealthDataType.BLOOD_PRESSURE_DIASTOLIC],
       };
 
   Future<void> _ensureConfigured() async {
@@ -176,6 +183,8 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
       case HealthMetricType.steps:
       case HealthMetricType.heartRate:
       case HealthMetricType.activeEnergy:
+      case HealthMetricType.bloodPressureSystolic:
+      case HealthMetricType.bloodPressureDiastolic:
         return raw;
     }
   }

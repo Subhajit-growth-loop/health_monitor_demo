@@ -13,6 +13,20 @@ class Fmt {
     return value.toStringAsFixed(type.decimals);
   }
 
+  /// Compact label for Y-axis ticks: no locale separators, "k" suffix for
+  /// values ≥ 1000, respects the type's decimal precision otherwise.
+  static String yAxisLabel(HealthMetricType type, double value) {
+    if (type.decimals == 0) {
+      final n = value.round();
+      if (n >= 1000) {
+        final k = n / 1000;
+        return '${k == k.roundToDouble() ? k.toInt() : k.toStringAsFixed(1)}k';
+      }
+      return '$n';
+    }
+    return value.toStringAsFixed(type.decimals);
+  }
+
   static String time(DateTime dt) => DateFormat.jm().format(dt);
   static String dayShort(DateTime dt) => DateFormat.E().format(dt); // Mon
   static String dayNum(DateTime dt) => DateFormat.d().format(dt); // 1

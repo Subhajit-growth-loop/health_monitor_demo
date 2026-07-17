@@ -6,80 +6,269 @@ import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/daily_point.dart';
 import '../../domain/entities/health_metric_type.dart';
 
-/// A trend chart. Sum-based metrics (steps, energy, sleep) render as bars;
-/// continuous metrics (heart rate, SpO2) render as a line.
+/// A trend chart. Sum-based metrics (steps, active energy) render as bars;
+/// continuous metrics as a line.
 ///
-/// [bottomLabelFormatter] controls the x-axis label. Defaults to short day name.
-class TrendChart extends StatelessWidget {
+/// Bar charts: tapping a bar highlights it and shows a data panel **below**
+/// the chart (always fully visible). Tap the same bar or outside to dismiss.
+///
+/// Line charts: tapping a data point shows a persistent tooltip until the
+/// user taps the same point or elsewhere.
+///
+/// Set [bottomSubLabelFormatter] to get a two-line x-axis label (e.g. "Mon\n14").
+class TrendChart extends StatefulWidget {
   const TrendChart({
     super.key,
     required this.type,
     required this.points,
     this.bottomLabelFormatter,
+    this.bottomSubLabelFormatter,
+    this.secondaryPoints,
+    this.secondaryType,
   });
 
   final HealthMetricType type;
   final List<DailyPoint> points;
   final String Function(DateTime)? bottomLabelFormatter;
+  final String Function(DateTime)? bottomSubLabelFormatter;
+  final List<DailyPoint>? secondaryPoints;
+  final HealthMetricType? secondaryType;
 
-  bool get _isBar => type.aggregation == Aggregation.sum;
+  @override
+  State<TrendChart> createState() => _TrendChartState();
+}
 
-  String _bottomLabel(DateTime day) =>
-      bottomLabelFormatter != null ? bottomLabelFormatter!(day) : Fmt.dayShort(day);
+class _TrendChartState extends State<TrendChart> {
+  int? _selectedBarIndex;
+  int? _selectedLineIndex;
 
-  double get _barWidth {
-    if (points.length <= 7) return 16.w;
-    if (points.length <= 31) return 8.w;
-    return 16.w;
+  bool get _isBar =>
+      widget.type.aggregation == Aggregation.sum &&
+      widget.secondaryPoints == null;
+  bool get _needsScroll => widget.points.length > 9;
+  bool get _hasTwoLines =>
+      widget.secondaryPoints != null && widget.secondaryType != null;
+
+  @override
+  void didUpdateWidget(TrendChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.points != widget.points) {
+      _selectedBarIndex = null;
+      _selectedLineIndex = null;
+    }
   }
 
+  String _bottomLabel(DateTime day) => widget.bottomLabelFormatter != null
+      ? widget.bottomLabelFormatter!(day)
+      : Fmt.dayShort(day);
+
+  double get _barWidth =>
+      _needsScroll ? 14.w : (widget.points.length <= 7 ? 16.w : 12.w);
+
   double get _labelInterval {
-    if (points.length <= 7) return 1;
-    if (points.length <= 14) return 2;
-    if (points.length <= 31) return 5;
-    return 1; // 12 monthly points: show all
+    if (widget.points.length <= 7) return 1;
+    if (widget.points.length <= 14) return 2;
+    if (widget.points.length <= 31) return 5;
+    return 1;
+  }
+
+  double get _bottomReservedSize =>
+      widget.bottomSubLabelFormatter != null ? 42.h : 28.h;
+
+  double get _maxValue {
+    final primary = widget.points
+        .map((p) => p.value)
+        .fold<double>(0, (a, b) => a > b ? a : b);
+    final secondary = widget.secondaryPoints
+            ?.map((p) => p.value)
+            .fold<double>(0, (a, b) => a > b ? a : b) ??
+        0;
+    final m = primary > secondary ? primary : secondary;
+    return m == 0 ? 1 : m * 1.2;
+  }
+
+  // For line charts, start Y just below the lowest value so charts like BP
+  // (70–140 mmHg) are not compressed into a thin band at the top.
+  double get _minValue {
+    if (_isBar) return 0;
+    final allValues = [
+      ...widget.points.map((p) => p.value),
+      ...(widget.secondaryPoints?.map((p) => p.value) ?? const []),
+    ].where((v) => v > 0);
+    if (allValues.isEmpty) return 0;
+    final min = allValues.reduce((a, b) => a < b ? a : b);
+    return (min * 0.88).floorToDouble();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (points.isEmpty) {
+    if (widget.points.isEmpty) {
       return SizedBox(
           height: 200.h, child: const Center(child: Text('No data yet')));
     }
-    return SizedBox(
-      height: 220.h,
-      child: _isBar ? _buildBars(context) : _buildLine(context),
+
+    if (_isBar) {
+      // Bar chart: chart (195.h) + always-reserved info panel (36.h) = 231.h.
+      // The extra 10.h vs the original compensates for the top reserved size
+      // added to _titles() so both the top Y label and the tallest bar fit.
+      // Info panel sits outside fl_chart's canvas, so it is never clipped.
+      // TapRegion clears the selection when the user taps outside the widget.
+      return TapRegion(
+        onTapOutside: (_) {
+          if (_selectedBarIndex != null) {
+            setState(() => _selectedBarIndex = null);
+          }
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 195.h,
+              child: LayoutBuilder(builder: (context, constraints) {
+                final chartWidth = _needsScroll
+                    ? (widget.points.length * 32.0).w
+                    : constraints.maxWidth;
+                final chart = SizedBox(
+                  width: chartWidth,
+                  child: _buildBars(context),
+                );
+                if (!_needsScroll) return chart;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.only(right: 16.w),
+                  child: chart,
+                );
+              }),
+            ),
+            _buildBarInfoPanel(context),
+          ],
+        ),
+      );
+    }
+
+    // Line chart.
+    return TapRegion(
+      onTapOutside: (_) {
+        if (_selectedLineIndex != null) {
+          setState(() => _selectedLineIndex = null);
+        }
+      },
+      child: SizedBox(
+        height: 220.h,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final chartWidth = _needsScroll
+              ? (widget.points.length * 32.0).w
+              : constraints.maxWidth;
+          final chart = SizedBox(
+            width: chartWidth,
+            child: _buildLine(context),
+          );
+          if (!_needsScroll) return chart;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.only(right: 16.w),
+            child: chart,
+          );
+        }),
+      ),
     );
   }
 
-  double get _maxValue {
-    final m = points.map((p) => p.value).fold<double>(0, (a, b) => a > b ? a : b);
-    return m == 0 ? 1 : m * 1.25;
+  // ── Bar info panel ─────────────────────────────────────────────────────────
+
+  Widget _buildBarInfoPanel(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Height is always reserved so the chart doesn't shift on selection change.
+    return SizedBox(
+      height: 36.h,
+      child: Padding(
+        padding: EdgeInsets.only(left: 40.w, top: 4.h),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          child: _selectedBarIndex != null
+              ? Container(
+                  key: ValueKey(_selectedBarIndex),
+                  padding: EdgeInsets.symmetric(horizontal: 14.w),
+                  decoration: BoxDecoration(
+                    color: scheme.inverseSurface,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        Fmt.dateShort(
+                            widget.points[_selectedBarIndex!].day),
+                        style: TextStyle(
+                          color: scheme.onInverseSurface,
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        '${Fmt.metricValue(widget.type, widget.points[_selectedBarIndex!].value)}'
+                        ' ${widget.type.unit}',
+                        style: TextStyle(
+                          color: widget.type.color,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ),
+    );
   }
+
+  // ── Shared axis titles ─────────────────────────────────────────────────────
 
   Widget _bottomTitle(BuildContext context, double value) {
     final i = value.toInt();
-    if (i < 0 || i >= points.length) return const SizedBox.shrink();
+    if (i < 0 || i >= widget.points.length) return const SizedBox.shrink();
+    final day = widget.points[i].day;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
-      padding: EdgeInsets.only(top: 6.h),
-      child: Text(_bottomLabel(points[i].day),
-          style: TextStyle(
-              fontSize: 11.sp,
-              color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      padding: EdgeInsets.only(top: 4.h),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_bottomLabel(day),
+              style: TextStyle(fontSize: 11.sp, color: color)),
+          if (widget.bottomSubLabelFormatter != null)
+            Text(
+              widget.bottomSubLabelFormatter!(day),
+              style: TextStyle(
+                  fontSize: 10.sp, color: color.withValues(alpha: 0.7)),
+            ),
+        ],
+      ),
     );
   }
 
   FlTitlesData _titles(BuildContext context) => FlTitlesData(
-        topTitles:
-            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        // showTitles must be true for reservedSize to be respected by fl_chart;
+        // returning SizedBox.shrink() keeps the space empty but visible.
+        topTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 14.h,
+            getTitlesWidget: (_, __) => const SizedBox.shrink(),
+          ),
+        ),
         rightTitles:
             const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 40.w,
+            reservedSize: 46.w,
             getTitlesWidget: (v, _) => Text(
-              Fmt.metricValue(type, v),
+              Fmt.yAxisLabel(widget.type, v),
               style: TextStyle(
                   fontSize: 10.sp,
                   color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -90,11 +279,13 @@ class TrendChart extends StatelessWidget {
           sideTitles: SideTitles(
             showTitles: true,
             interval: _labelInterval,
-            reservedSize: 28.h,
+            reservedSize: _bottomReservedSize,
             getTitlesWidget: (v, _) => _bottomTitle(context, v),
           ),
         ),
       );
+
+  // ── Bar chart ──────────────────────────────────────────────────────────────
 
   Widget _buildBars(BuildContext context) {
     return BarChart(
@@ -104,46 +295,176 @@ class TrendChart extends StatelessWidget {
         borderData: FlBorderData(show: false),
         gridData: const FlGridData(show: true, drawVerticalLine: false),
         titlesData: _titles(context),
+        barTouchData: BarTouchData(
+          handleBuiltInTouches: true,
+          // Suppress fl_chart's built-in floating tooltip; we render the info
+          // panel below the chart instead (always fully visible).
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipItem: (group, groupIndex, rod, rodIndex) => null,
+          ),
+          touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
+            if (event is! FlTapUpEvent) return;
+            final tapped = response?.spot?.touchedBarGroupIndex;
+            setState(() {
+              _selectedBarIndex =
+                  (tapped != null && tapped != _selectedBarIndex)
+                      ? tapped
+                      : null;
+            });
+          },
+        ),
         barGroups: [
-          for (var i = 0; i < points.length; i++)
-            BarChartGroupData(x: i, barRods: [
-              BarChartRodData(
-                toY: points[i].value,
-                color: type.color,
-                width: _barWidth,
-                borderRadius: BorderRadius.circular(6.r),
-              ),
-            ]),
+          for (var i = 0; i < widget.points.length; i++)
+            BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: widget.points[i].value,
+                  // Highlight selected bar; dim the rest for contrast.
+                  color: i == _selectedBarIndex
+                      ? widget.type.color
+                      : widget.type.color.withValues(alpha: 0.55),
+                  width: _barWidth,
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+              ],
+            ),
         ],
       ),
     );
   }
 
+  // ── Line chart ─────────────────────────────────────────────────────────────
+
   Widget _buildLine(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // Build bar data first so they can be referenced in showingTooltipIndicators.
+    final primaryBar = _lineBar(widget.points, widget.type.color);
+    final secondaryBar = _hasTwoLines
+        ? _lineBar(widget.secondaryPoints!, widget.secondaryType!.color,
+            dashed: true)
+        : null;
+    final lineBarsData = [
+      primaryBar,
+      if (secondaryBar != null) secondaryBar,
+    ];
+
+    // Persistent tooltip: show indicator at the selected x index.
+    List<ShowingTooltipIndicators> tooltipIndicators = const [];
+    if (_selectedLineIndex != null) {
+      final xi = _selectedLineIndex!;
+      final spots = <LineBarSpot>[];
+      if (xi < primaryBar.spots.length) {
+        spots.add(LineBarSpot(primaryBar, 0, primaryBar.spots[xi]));
+      }
+      if (secondaryBar != null &&
+          xi < (widget.secondaryPoints?.length ?? 0)) {
+        spots.add(LineBarSpot(secondaryBar, 1, secondaryBar.spots[xi]));
+      }
+      if (spots.isNotEmpty) {
+        tooltipIndicators = [ShowingTooltipIndicators(spots)];
+      }
+    }
+
     return LineChart(
       LineChartData(
+        clipData: const FlClipData.all(),
+        showingTooltipIndicators: tooltipIndicators,
         maxY: _maxValue,
-        minY: 0,
+        minY: _minValue,
         borderData: FlBorderData(show: false),
         gridData: const FlGridData(show: true, drawVerticalLine: false),
         titlesData: _titles(context),
-        lineBarsData: [
-          LineChartBarData(
-            spots: [
-              for (var i = 0; i < points.length; i++)
-                FlSpot(i.toDouble(), points[i].value),
-            ],
-            isCurved: true,
-            color: type.color,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
-            belowBarData: BarAreaData(
-              show: true,
-              color: type.color.withValues(alpha: 0.12),
-            ),
+        lineTouchData: LineTouchData(
+          // Built-in touches disabled; we drive tooltip visibility via
+          // showingTooltipIndicators so it persists after the finger lifts.
+          handleBuiltInTouches: false,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => scheme.inverseSurface,
+            tooltipPadding:
+                EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            tooltipRoundedRadius: 10.r,
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
+            getTooltipItems: (spots) {
+              return spots.map((spot) {
+                final i = spot.x.toInt();
+                final isSecondary = spot.barIndex == 1;
+                final t = isSecondary ? widget.secondaryType! : widget.type;
+                final day = widget.points[
+                        i < widget.points.length
+                            ? i
+                            : widget.points.length - 1]
+                    .day;
+                return LineTooltipItem(
+                  isSecondary ? '' : Fmt.dateShort(day),
+                  TextStyle(
+                    color: scheme.onInverseSurface,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: '\n${Fmt.metricValue(t, spot.y)} ${t.unit}',
+                      style: TextStyle(
+                        color: t.color,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList();
+            },
           ),
-        ],
+          touchCallback: (FlTouchEvent event, LineTouchResponse? response) {
+            if (event is! FlTapUpEvent) return;
+            final spots = response?.lineBarSpots;
+            if (spots == null || spots.isEmpty) {
+              setState(() => _selectedLineIndex = null);
+              return;
+            }
+            final tappedX = spots.first.x.toInt();
+            setState(() {
+              _selectedLineIndex =
+                  tappedX == _selectedLineIndex ? null : tappedX;
+            });
+          },
+        ),
+        lineBarsData: lineBarsData,
       ),
     );
   }
+
+  LineChartBarData _lineBar(
+    List<DailyPoint> pts,
+    Color color, {
+    bool dashed = false,
+  }) =>
+      LineChartBarData(
+        spots: [
+          for (var i = 0; i < pts.length; i++)
+            FlSpot(i.toDouble(), pts[i].value),
+        ],
+        isCurved: true,
+        color: color,
+        barWidth: 2.5,
+        dotData: FlDotData(
+          show: true,
+          getDotPainter: (spot, pct, bar, idx) => FlDotCirclePainter(
+            radius: 3.r,
+            color: color,
+            strokeWidth: 1.5,
+            strokeColor: Colors.white,
+          ),
+        ),
+        dashArray: dashed ? [6, 4] : null,
+        belowBarData: dashed
+            ? BarAreaData(show: false)
+            : BarAreaData(
+                show: true,
+                color: color.withValues(alpha: 0.10),
+              ),
+      );
 }
