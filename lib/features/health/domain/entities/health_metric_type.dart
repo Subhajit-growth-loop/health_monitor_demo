@@ -53,6 +53,24 @@ enum HealthMetricType {
     color: Color(0xFFF39C12),
     aggregation: Aggregation.sum,
     decimals: 0,
+  ),
+  weight(
+    id: 'weight',
+    label: 'Weight',
+    unit: 'kg',
+    icon: Icons.monitor_weight_rounded,
+    color: Color(0xFF00B894),
+    aggregation: Aggregation.latest,
+    decimals: 1,
+  ),
+  bloodGlucose(
+    id: 'blood_glucose',
+    label: 'Blood Glucose',
+    unit: 'mg/dL',
+    icon: Icons.water_drop_rounded,
+    color: Color(0xFFD63031),
+    aggregation: Aggregation.average,
+    decimals: 0,
   );
 
   const HealthMetricType({
@@ -75,4 +93,7 @@ enum HealthMetricType {
 
   static HealthMetricType fromId(String id) =>
       HealthMetricType.values.firstWhere((t) => t.id == id);
+
+  static HealthMetricType? maybeFromId(String id) =>
+      HealthMetricType.values.where((t) => t.id == id).firstOrNull;
 }

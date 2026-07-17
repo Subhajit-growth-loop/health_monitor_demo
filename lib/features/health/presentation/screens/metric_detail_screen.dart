@@ -3,39 +3,94 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/utils/formatters.dart';
+import '../../domain/entities/daily_point.dart';
 import '../../domain/entities/health_metric_type.dart';
 import '../../domain/entities/sync_status.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/trend_chart.dart';
 
-class MetricDetailScreen extends ConsumerWidget {
+enum _ChartPeriod {
+  week(label: 'Week'),
+  month(label: 'Month'),
+  year(label: 'Year');
+
+  const _ChartPeriod({required this.label});
+  final String label;
+}
+
+class MetricDetailScreen extends ConsumerStatefulWidget {
   const MetricDetailScreen({super.key, required this.type});
 
   final HealthMetricType type;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final series = ref.watch(dailySeriesProvider((type: type, days: 7)));
-    final records = ref.watch(recordsForTypeProvider(type));
+  ConsumerState<MetricDetailScreen> createState() => _MetricDetailScreenState();
+}
+
+class _MetricDetailScreenState extends ConsumerState<MetricDetailScreen> {
+  _ChartPeriod _period = _ChartPeriod.week;
+
+  @override
+  Widget build(BuildContext context) {
+    final AsyncValue<List<DailyPoint>> series;
+    final String Function(DateTime) labelFormatter;
+    final String periodLabel;
+
+    switch (_period) {
+      case _ChartPeriod.week:
+        series =
+            ref.watch(dailySeriesProvider((type: widget.type, days: 7)));
+        labelFormatter = Fmt.dayShort;
+        periodLabel = 'Last 7 days';
+      case _ChartPeriod.month:
+        series =
+            ref.watch(dailySeriesProvider((type: widget.type, days: 30)));
+        labelFormatter = Fmt.dayNum;
+        periodLabel = 'Last 30 days';
+      case _ChartPeriod.year:
+        series = ref
+            .watch(monthlySeriesProvider((type: widget.type, months: 12)));
+        labelFormatter = Fmt.monthShort;
+        periodLabel = 'Last 12 months';
+    }
+
+    final records = ref.watch(recordsForTypeProvider(widget.type));
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(type.icon, color: type.color, size: 22.r),
+            Icon(widget.type.icon, color: widget.type.color, size: 22.r),
             SizedBox(width: 8.w),
-            Text(type.label),
+            Text(widget.type.label),
           ],
         ),
       ),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 32.h),
           children: [
+            // Period selector
+            Row(
+              children: [
+                for (final period in _ChartPeriod.values) ...[
+                  if (period != _ChartPeriod.values.first)
+                    SizedBox(width: 8.w),
+                  ChoiceChip(
+                    label: Text(period.label),
+                    selected: _period == period,
+                    onSelected: (selected) {
+                      if (selected) setState(() => _period = period);
+                    },
+                  ),
+                ],
+              ],
+            ),
+            SizedBox(height: 16.h),
             Text(
-              'Last 7 days',
+              periodLabel,
               style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
             ),
             SizedBox(height: 12.h),
@@ -51,7 +106,11 @@ class MetricDetailScreen extends ConsumerWidget {
                     height: 220.h,
                     child: Center(child: Text('$e')),
                   ),
-                  data: (points) => TrendChart(type: type, points: points),
+                  data: (points) => TrendChart(
+                    type: widget.type,
+                    points: points,
+                    bottomLabelFormatter: labelFormatter,
+                  ),
                 ),
               ),
             ),
@@ -93,12 +152,12 @@ class MetricDetailScreen extends ConsumerWidget {
                   children: [
                     for (final r in list.take(60))
                       _ReadingTile(
-                        value: Fmt.metricValue(type, r.value),
-                        unit: type.unit,
+                        value: Fmt.metricValue(widget.type, r.value),
+                        unit: widget.type.unit,
                         source: r.source,
                         time: Fmt.dateTime(r.timestamp),
                         status: r.syncStatus,
-                        color: type.color,
+                        color: widget.type.color,
                       ),
                   ],
                 );

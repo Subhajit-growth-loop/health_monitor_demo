@@ -6,15 +6,39 @@ import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/daily_point.dart';
 import '../../domain/entities/health_metric_type.dart';
 
-/// A weekly trend chart. Sum-based metrics (steps, energy, sleep) render as
-/// bars; continuous metrics (heart rate, SpO2) render as a line.
+/// A trend chart. Sum-based metrics (steps, energy, sleep) render as bars;
+/// continuous metrics (heart rate, SpO2) render as a line.
+///
+/// [bottomLabelFormatter] controls the x-axis label. Defaults to short day name.
 class TrendChart extends StatelessWidget {
-  const TrendChart({super.key, required this.type, required this.points});
+  const TrendChart({
+    super.key,
+    required this.type,
+    required this.points,
+    this.bottomLabelFormatter,
+  });
 
   final HealthMetricType type;
   final List<DailyPoint> points;
+  final String Function(DateTime)? bottomLabelFormatter;
 
   bool get _isBar => type.aggregation == Aggregation.sum;
+
+  String _bottomLabel(DateTime day) =>
+      bottomLabelFormatter != null ? bottomLabelFormatter!(day) : Fmt.dayShort(day);
+
+  double get _barWidth {
+    if (points.length <= 7) return 16.w;
+    if (points.length <= 31) return 8.w;
+    return 16.w;
+  }
+
+  double get _labelInterval {
+    if (points.length <= 7) return 1;
+    if (points.length <= 14) return 2;
+    if (points.length <= 31) return 5;
+    return 1; // 12 monthly points: show all
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +62,7 @@ class TrendChart extends StatelessWidget {
     if (i < 0 || i >= points.length) return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.only(top: 6.h),
-      child: Text(Fmt.dayShort(points[i].day),
+      child: Text(_bottomLabel(points[i].day),
           style: TextStyle(
               fontSize: 11.sp,
               color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -65,6 +89,7 @@ class TrendChart extends StatelessWidget {
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
+            interval: _labelInterval,
             reservedSize: 28.h,
             getTitlesWidget: (v, _) => _bottomTitle(context, v),
           ),
@@ -85,7 +110,7 @@ class TrendChart extends StatelessWidget {
               BarChartRodData(
                 toY: points[i].value,
                 color: type.color,
-                width: 16.w,
+                width: _barWidth,
                 borderRadius: BorderRadius.circular(6.r),
               ),
             ]),

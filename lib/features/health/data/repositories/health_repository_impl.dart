@@ -73,6 +73,15 @@ class HealthRepositoryImpl implements HealthRepository {
       _local.todaySummary();
 
   @override
+  Future<Map<HealthMetricType, double>> summaryForDate(DateTime date) =>
+      _local.summaryForDate(date);
+
+  @override
+  Future<List<DailyPoint>> monthlySeries(HealthMetricType type,
+          {int months = 12}) =>
+      _local.monthlySeries(type, months: months);
+
+  @override
   Future<int> pendingCount() => _local.pendingCount();
 
   @override

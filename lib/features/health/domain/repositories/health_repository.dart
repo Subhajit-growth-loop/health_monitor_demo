@@ -35,6 +35,15 @@ abstract interface class HealthRepository {
   /// by the metric).
   Future<Map<HealthMetricType, double>> todaySummary();
 
+  /// Aggregated value for each metric type on a specific date.
+  Future<Map<HealthMetricType, double>> summaryForDate(DateTime date);
+
+  /// Per-month aggregates for a type over the last [months] months.
+  Future<List<DailyPoint>> monthlySeries(
+    HealthMetricType type, {
+    int months = 12,
+  });
+
   /// How many local records are still awaiting backend confirmation.
   Future<int> pendingCount();
 

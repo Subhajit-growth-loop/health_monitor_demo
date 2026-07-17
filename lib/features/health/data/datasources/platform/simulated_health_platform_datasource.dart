@@ -76,6 +76,12 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
             () => 95 + _rng.nextInt(5), sources: const ['Apple Watch']);
       case HealthMetricType.sleep:
         return _nightly(type, from, to);
+      case HealthMetricType.weight:
+        return _daily(type, from, to,
+            () => 70.0 + _rng.nextDouble() * 15.0, source: 'Health Connect');
+      case HealthMetricType.bloodGlucose:
+        return _everyMinutes(type, from, to, 120,
+            () => 80 + _rng.nextInt(60), sources: const ['Health Connect']);
     }
   }
 
@@ -118,6 +124,24 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
       out.add(_record(
           type, t, value().toDouble(), sources[_rng.nextInt(sources.length)]));
       t = t.add(Duration(minutes: minutes));
+    }
+    return out;
+  }
+
+  List<HealthRecordModel> _daily(
+    HealthMetricType type,
+    DateTime from,
+    DateTime to,
+    num Function() value, {
+    required String source,
+  }) {
+    final out = <HealthRecordModel>[];
+    var t = DateTime(from.year, from.month, from.day, 8);
+    while (t.isBefore(to)) {
+      if (t.isAfter(from)) {
+        out.add(_record(type, t, double.parse(value().toStringAsFixed(1)), source));
+      }
+      t = t.add(const Duration(days: 1));
     }
     return out;
   }

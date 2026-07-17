@@ -15,7 +15,9 @@ class Fmt {
 
   static String time(DateTime dt) => DateFormat.jm().format(dt);
   static String dayShort(DateTime dt) => DateFormat.E().format(dt); // Mon
-  static String dayNum(DateTime dt) => DateFormat.d().format(dt);
+  static String dayNum(DateTime dt) => DateFormat.d().format(dt); // 1
+  static String monthShort(DateTime dt) => DateFormat.MMM().format(dt); // Jan
+  static String dateShort(DateTime dt) => DateFormat('MMM d, yyyy').format(dt);
   static String dateTime(DateTime dt) => DateFormat('MMM d, h:mm a').format(dt);
 
   static String relative(DateTime? dt) {

@@ -37,6 +37,8 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         HealthMetricType.bloodOxygen => [HealthDataType.BLOOD_OXYGEN],
         HealthMetricType.activeEnergy => [HealthDataType.ACTIVE_ENERGY_BURNED],
         HealthMetricType.sleep => [HealthDataType.SLEEP_ASLEEP],
+        HealthMetricType.weight => [HealthDataType.WEIGHT],
+        HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
       };
 
   Future<void> _ensureConfigured() async {
@@ -133,7 +135,9 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         final value = _numericValue(p);
         if (value == null) continue;
         final converted = _convert(metric, value);
-        final ts = p.dateFrom;
+        // Sleep sessions start the previous night; use dateTo (wake time) so the
+        // record is attributed to the day the user woke up, not when they fell asleep.
+        final ts = metric == HealthMetricType.sleep ? p.dateTo : p.dateFrom;
         final source = p.sourceName.isEmpty ? providerName : p.sourceName;
         out.add(HealthRecordModel(
           id: HealthRecord.buildId(
@@ -165,6 +169,10 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
       case HealthMetricType.bloodOxygen:
         // HealthKit reports SpO2 as a 0–1 fraction; Health Connect as a %.
         return raw <= 1.0 ? raw * 100.0 : raw;
+      case HealthMetricType.bloodGlucose:
+        // HealthKit reports in mmol/L; Health Connect in mg/dL. Convert accordingly.
+        return Platform.isIOS ? raw * 18.0182 : raw;
+      case HealthMetricType.weight:
       case HealthMetricType.steps:
       case HealthMetricType.heartRate:
       case HealthMetricType.activeEnergy:

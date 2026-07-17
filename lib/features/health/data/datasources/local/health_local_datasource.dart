@@ -147,18 +147,20 @@ class HealthLocalDataSource {
     });
   }
 
-  Future<Map<HealthMetricType, double>> todaySummary() async {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day);
+  Future<Map<HealthMetricType, double>> summaryForDate(DateTime date) async {
+    final start = DateTime(date.year, date.month, date.day);
+    final end = DateTime(date.year, date.month, date.day + 1);
     final rows = await _db.query(
       table,
-      where: 'timestamp >= ?',
-      whereArgs: [start.millisecondsSinceEpoch],
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      orderBy: 'timestamp ASC',
     );
 
     final grouped = <HealthMetricType, List<double>>{};
     for (final row in rows) {
-      final type = HealthMetricType.fromId(row['type'] as String);
+      final type = HealthMetricType.maybeFromId(row['type'] as String);
+      if (type == null) continue;
       (grouped[type] ??= []).add((row['value'] as num).toDouble());
     }
 
@@ -166,6 +168,50 @@ class HealthLocalDataSource {
       for (final type in HealthMetricType.values)
         type: _aggregate(type, grouped[type] ?? const []),
     };
+  }
+
+  Future<Map<HealthMetricType, double>> todaySummary() =>
+      summaryForDate(DateTime.now());
+
+  Future<List<DailyPoint>> monthlySeries(
+    HealthMetricType type, {
+    int months = 12,
+  }) async {
+    final now = DateTime.now();
+    var startYear = now.year;
+    var startMonth = now.month - months + 1;
+    while (startMonth < 1) {
+      startYear--;
+      startMonth += 12;
+    }
+    final start = DateTime(startYear, startMonth, 1);
+    final end = DateTime(now.year, now.month + 1, 1);
+
+    final rows = await _db.query(
+      table,
+      where: 'type = ? AND timestamp >= ? AND timestamp < ?',
+      whereArgs: [type.id, start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+      orderBy: 'timestamp ASC',
+    );
+
+    final buckets = <int, List<double>>{};
+    for (final row in rows) {
+      final ts = DateTime.fromMillisecondsSinceEpoch(row['timestamp'] as int);
+      final key = DateTime(ts.year, ts.month, 1).millisecondsSinceEpoch;
+      (buckets[key] ??= []).add((row['value'] as num).toDouble());
+    }
+
+    return List.generate(months, (i) {
+      var y = startYear;
+      var m = startMonth + i;
+      while (m > 12) {
+        y++;
+        m -= 12;
+      }
+      final monthStart = DateTime(y, m, 1);
+      final values = buckets[monthStart.millisecondsSinceEpoch] ?? const [];
+      return DailyPoint(day: monthStart, value: _aggregate(type, values));
+    });
   }
 
   double _aggregate(HealthMetricType type, List<double> values) {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/health_metric_type.dart';
 import '../../domain/entities/permission_state.dart';
 import '../providers/dashboard_providers.dart';
@@ -21,8 +22,6 @@ Future<void> _handleGrantPermission(
 ) async {
   final anyDenied = perms.grants.values.any((g) => g == PermissionGrant.denied);
 
-  // On iOS, once the user has denied, the OS will never show the dialog again.
-  // We must send them to system Settings instead.
   if (Platform.isIOS && anyDenied) {
     await launchUrl(Uri.parse('app-settings:'));
     return;
@@ -30,29 +29,107 @@ Future<void> _handleGrantPermission(
   await ref.read(permissionControllerProvider.notifier).requestAll();
 }
 
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _dateLabel(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  if (_isSameDay(date, today)) return 'Today';
+  if (_isSameDay(date, yesterday)) return 'Yesterday';
+  return Fmt.dateShort(date);
+}
+
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDate = ref.watch(selectedDateProvider);
     final summary = ref.watch(todaySummaryProvider);
     final permsAsync = ref.watch(permissionControllerProvider);
     final perms =
         permsAsync.valueOrNull ?? HealthPermissionState.allNotRequested();
 
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isToday = _isSameDay(selectedDate, today);
+    final dateLabel = _dateLabel(selectedDate);
+
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 16.w,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Text(
-              'Today',
-              style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w700),
+            SizedBox(width: 4.w),
+            IconButton(
+              icon: Icon(Icons.chevron_left_rounded, size: 24.r),
+              tooltip: 'Previous day',
+              onPressed: () {
+                ref.read(selectedDateProvider.notifier).state =
+                    selectedDate.subtract(const Duration(days: 1));
+              },
             ),
-            Text(
-              'Your health at a glance',
-              style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w400),
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: today,
+                  );
+                  if (picked != null && context.mounted) {
+                    ref.read(selectedDateProvider.notifier).state =
+                        DateTime(picked.year, picked.month, picked.day);
+                  }
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          dateLabel,
+                          style: TextStyle(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down_rounded, size: 20.r),
+                      ],
+                    ),
+                    Text(
+                      'Your health at a glance',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.chevron_right_rounded,
+                size: 24.r,
+                color: isToday
+                    ? Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.3)
+                    : null,
+              ),
+              tooltip: 'Next day',
+              onPressed: isToday
+                  ? null
+                  : () {
+                      ref.read(selectedDateProvider.notifier).state =
+                          selectedDate.add(const Duration(days: 1));
+                    },
             ),
           ],
         ),
