@@ -21,11 +21,32 @@ enum HealthCategory {
 /// platform-specific HealthKit / Health Connect types into, so the rest of
 /// the app stays completely platform-agnostic.
 ///
-/// The set covers every data type the `health` package exposes on BOTH iOS
-/// (HealthKit) and Android (Health Connect) as a numeric time-series sample —
-/// the maximum overlap that works identically on both platforms.
+/// Metrics are triaged for a glucose-first metabolic twin (MASLD + midlife
+/// women) across three tiers:
+///
+///  * **Headline** — `collect: true`, `hiddenFromDashboard: false`: the core
+///    metabolic/liver story, shown on the dashboard.
+///  * **Collect, quiet** — `collect: true`, `hiddenFromDashboard: true`:
+///    clinically useful context (OSA proxies, sleep stages, body composition)
+///    that earns a consent-sheet row but is only surfaced on drill-down or
+///    when abnormal.
+///  * **Not requested** — `collect: false`: defined for future use but never
+///    added to the permission request, so it never costs a consent-sheet row.
+///    Every requested type is another row on the HealthKit/Health Connect
+///    consent sheet, and grant rates fall sharply past ~10–12 permissions —
+///    fatal for a product that lives on data completeness.
 enum HealthMetricType {
   // ── Vitals ────────────────────────────────────────────────────────────
+  bloodGlucose(
+    id: 'blood_glucose',
+    label: 'Blood Glucose',
+    unit: 'mg/dL',
+    icon: Icons.water_drop_rounded,
+    color: Color(0xFFD63031),
+    aggregation: Aggregation.average,
+    decimals: 0,
+    category: HealthCategory.vitals,
+  ),
   heartRate(
     id: 'heart_rate',
     label: 'Heart Rate',
@@ -46,22 +67,16 @@ enum HealthMetricType {
     decimals: 0,
     category: HealthCategory.vitals,
   ),
-  bloodOxygen(
-    id: 'blood_oxygen',
-    label: 'Blood Oxygen',
-    unit: '%',
-    icon: Icons.bloodtype_rounded,
-    color: Color(0xFF0984E3),
-    aggregation: Aggregation.average,
-    decimals: 0,
-    category: HealthCategory.vitals,
-  ),
-  respiratoryRate(
-    id: 'respiratory_rate',
-    label: 'Respiratory Rate',
-    unit: 'br/min',
-    icon: Icons.air_rounded,
-    color: Color(0xFF00BCD4),
+  // HRV underlying measure DIFFERS by platform: SDNN on HealthKit, RMSSD on
+  // Health Connect (see RealHealthPlatformDataSource._dataTypes). A single
+  // user's series is internally consistent; cohort-level comparison across
+  // platforms must account for the SDNN vs RMSSD difference.
+  heartRateVariability(
+    id: 'hrv',
+    label: 'HRV',
+    unit: 'ms',
+    icon: Icons.stacked_line_chart_rounded,
+    color: Color(0xFF26A69A),
     aggregation: Aggregation.average,
     decimals: 0,
     category: HealthCategory.vitals,
@@ -87,6 +102,30 @@ enum HealthMetricType {
     category: HealthCategory.vitals,
     hiddenFromDashboard: true,
   ),
+  // OSA proxies (OSA ↔ MASLD) — collected, surfaced only when abnormal.
+  bloodOxygen(
+    id: 'blood_oxygen',
+    label: 'Blood Oxygen',
+    unit: '%',
+    icon: Icons.bloodtype_rounded,
+    color: Color(0xFF0984E3),
+    aggregation: Aggregation.average,
+    decimals: 0,
+    category: HealthCategory.vitals,
+    hiddenFromDashboard: true,
+  ),
+  respiratoryRate(
+    id: 'respiratory_rate',
+    label: 'Respiratory Rate',
+    unit: 'br/min',
+    icon: Icons.air_rounded,
+    color: Color(0xFF00BCD4),
+    aggregation: Aggregation.average,
+    decimals: 0,
+    category: HealthCategory.vitals,
+    hiddenFromDashboard: true,
+  ),
+  // Cycle-tracking context — noisy otherwise.
   bodyTemperature(
     id: 'body_temperature',
     label: 'Body Temp',
@@ -96,16 +135,7 @@ enum HealthMetricType {
     aggregation: Aggregation.average,
     decimals: 1,
     category: HealthCategory.vitals,
-  ),
-  bloodGlucose(
-    id: 'blood_glucose',
-    label: 'Blood Glucose',
-    unit: 'mg/dL',
-    icon: Icons.water_drop_rounded,
-    color: Color(0xFFD63031),
-    aggregation: Aggregation.average,
-    decimals: 0,
-    category: HealthCategory.vitals,
+    hiddenFromDashboard: true,
   ),
 
   // ── Activity ──────────────────────────────────────────────────────────
@@ -129,6 +159,8 @@ enum HealthMetricType {
     decimals: 0,
     category: HealthCategory.activity,
   ),
+  // Not requested — redundant with activeEnergy + weight until energy-balance
+  // math exists. Defined for future use; costs no consent-sheet row.
   basalEnergy(
     id: 'basal_energy',
     label: 'Resting Energy',
@@ -138,6 +170,8 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 0,
     category: HealthCategory.activity,
+    collect: false,
+    hiddenFromDashboard: true,
   ),
   totalCalories(
     id: 'total_calories',
@@ -148,6 +182,8 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 0,
     category: HealthCategory.activity,
+    collect: false,
+    hiddenFromDashboard: true,
   ),
   flightsClimbed(
     id: 'flights_climbed',
@@ -158,6 +194,8 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 0,
     category: HealthCategory.activity,
+    collect: false,
+    hiddenFromDashboard: true,
   ),
 
   // ── Body ──────────────────────────────────────────────────────────────
@@ -171,6 +209,9 @@ enum HealthMetricType {
     decimals: 1,
     category: HealthCategory.body,
   ),
+  // Collected as a profile-style latest value (needed to derive BMI); not a
+  // headline time series. BMI itself is derived (weight / height²), not
+  // collected — it has no Health Connect record type anyway.
   height(
     id: 'height',
     label: 'Height',
@@ -180,16 +221,7 @@ enum HealthMetricType {
     aggregation: Aggregation.latest,
     decimals: 0,
     category: HealthCategory.body,
-  ),
-  bmi(
-    id: 'bmi',
-    label: 'BMI',
-    unit: '',
-    icon: Icons.straighten_rounded,
-    color: Color(0xFF00897B),
-    aggregation: Aggregation.latest,
-    decimals: 1,
-    category: HealthCategory.body,
+    hiddenFromDashboard: true,
   ),
   bodyFat(
     id: 'body_fat',
@@ -200,6 +232,7 @@ enum HealthMetricType {
     aggregation: Aggregation.latest,
     decimals: 1,
     category: HealthCategory.body,
+    hiddenFromDashboard: true,
   ),
   leanBodyMass(
     id: 'lean_body_mass',
@@ -210,6 +243,7 @@ enum HealthMetricType {
     aggregation: Aggregation.latest,
     decimals: 1,
     category: HealthCategory.body,
+    hiddenFromDashboard: true,
   ),
 
   // ── Sleep ─────────────────────────────────────────────────────────────
@@ -223,6 +257,7 @@ enum HealthMetricType {
     decimals: 1,
     category: HealthCategory.sleep,
   ),
+  // Stage breakdown — for the sleep detail view, not the dashboard.
   sleepDeep(
     id: 'sleep_deep',
     label: 'Deep Sleep',
@@ -232,6 +267,7 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 1,
     category: HealthCategory.sleep,
+    hiddenFromDashboard: true,
   ),
   sleepLight(
     id: 'sleep_light',
@@ -242,6 +278,7 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 1,
     category: HealthCategory.sleep,
+    hiddenFromDashboard: true,
   ),
   sleepRem(
     id: 'sleep_rem',
@@ -252,6 +289,7 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 1,
     category: HealthCategory.sleep,
+    hiddenFromDashboard: true,
   ),
   sleepAwake(
     id: 'sleep_awake',
@@ -262,19 +300,11 @@ enum HealthMetricType {
     aggregation: Aggregation.sum,
     decimals: 1,
     category: HealthCategory.sleep,
+    hiddenFromDashboard: true,
   ),
 
   // ── Wellness ──────────────────────────────────────────────────────────
-  water(
-    id: 'water',
-    label: 'Water',
-    unit: 'L',
-    icon: Icons.water_drop_outlined,
-    color: Color(0xFF039BE5),
-    aggregation: Aggregation.sum,
-    decimals: 2,
-    category: HealthCategory.wellness,
-  ),
+  // Needed for the perimenopause / cycle overlay in onboarding.
   menstruationFlow(
     id: 'menstruation_flow',
     label: 'Menstruation',
@@ -295,6 +325,7 @@ enum HealthMetricType {
     required this.aggregation,
     required this.decimals,
     required this.category,
+    this.collect = true,
     this.hiddenFromDashboard = false,
   });
 
@@ -306,7 +337,20 @@ enum HealthMetricType {
   final Aggregation aggregation;
   final int decimals;
   final HealthCategory category;
+
+  /// Whether this type is included in the platform permission request and the
+  /// acquisition sweep. `false` types are defined but never requested, so they
+  /// add no row to the consent sheet.
+  final bool collect;
+
+  /// Whether this type is kept off the dashboard grid (still collected if
+  /// [collect] is true — surfaced on drill-down / detail views only).
   final bool hiddenFromDashboard;
+
+  /// The types actually requested from HealthKit / Health Connect and swept
+  /// during acquisition — the headline + collect-quiet tiers.
+  static List<HealthMetricType> get collectible =>
+      values.where((t) => t.collect).toList(growable: false);
 
   static HealthMetricType fromId(String id) =>
       HealthMetricType.values.firstWhere((t) => t.id == id);

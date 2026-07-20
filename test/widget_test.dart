@@ -86,20 +86,23 @@ void main() {
     expect(summary.containsKey(HealthMetricType.steps), isTrue);
   });
 
-  test('every metric type flows through the pipeline and aggregates', () async {
+  test('collectible metric types flow through the pipeline and aggregate',
+      () async {
     final local = await newLocal();
     final platform = SimulatedHealthPlatformDataSource();
 
-    await platform.requestPermissions(HealthMetricType.values);
+    // The app only ever requests / sweeps the collectible tiers.
+    final requested = HealthMetricType.collectible;
+    await platform.requestPermissions(requested);
     final samples = await platform.fetchSamplesSince(
       DateTime.now().subtract(const Duration(days: 7)),
-      HealthMetricType.values,
+      requested,
     );
     await local.upsertPending(samples);
 
-    // Every metric type should have produced at least one sample.
+    // Every requested type should have produced at least one sample.
     final typesWithData = samples.map((s) => s.type).toSet();
-    for (final type in HealthMetricType.values) {
+    for (final type in requested) {
       expect(typesWithData.contains(type), isTrue,
           reason: 'no samples generated for ${type.id}');
     }
@@ -116,5 +119,14 @@ void main() {
     for (final type in HealthMetricType.values) {
       expect(summary.containsKey(type), isTrue);
     }
+
+    // Triage sanity: HRV is collected; water/bmi are gone; the not-requested
+    // energy/activity extras are excluded from the request.
+    expect(requested.contains(HealthMetricType.heartRateVariability), isTrue);
+    expect(requested.contains(HealthMetricType.basalEnergy), isFalse);
+    expect(requested.contains(HealthMetricType.totalCalories), isFalse);
+    expect(requested.contains(HealthMetricType.flightsClimbed), isFalse);
+    expect(HealthMetricType.maybeFromId('water'), isNull);
+    expect(HealthMetricType.maybeFromId('bmi'), isNull);
   });
 }

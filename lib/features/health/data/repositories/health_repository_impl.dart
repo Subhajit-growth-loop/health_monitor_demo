@@ -48,7 +48,7 @@ class HealthRepositoryImpl implements HealthRepository {
   @override
   Future<int> refreshFromPlatform() async {
     final perms = await _platform.currentPermissions();
-    final granted = HealthMetricType.values
+    final granted = HealthMetricType.collectible
         .where(perms.isGranted)
         .toList(growable: false);
     if (granted.isEmpty) return 0;

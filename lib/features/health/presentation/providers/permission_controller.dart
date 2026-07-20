@@ -14,7 +14,9 @@ class PermissionController extends AsyncNotifier<HealthPermissionState> {
     return ref.read(healthRepositoryProvider).currentPermissions();
   }
 
-  Future<void> requestAll() => request(HealthMetricType.values);
+  /// Request only the collectible tiers (headline + collect-quiet). Types
+  /// marked `collect: false` are never requested, keeping the consent sheet short.
+  Future<void> requestAll() => request(HealthMetricType.collectible);
 
   Future<void> request(List<HealthMetricType> types) async {
     state = const AsyncLoading();

@@ -69,6 +69,9 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
       case HealthMetricType.restingHeartRate:
         return _daily(type, from, to, () => 55.0 + _rng.nextInt(16),
             source: 'Apple Watch');
+      case HealthMetricType.heartRateVariability:
+        return _daily(type, from, to, () => 25.0 + _rng.nextInt(70),
+            source: 'Apple Watch');
       case HealthMetricType.bloodOxygen:
         return _everyMinutes(type, from, to, 180,
             () => 95 + _rng.nextInt(5), sources: const ['Apple Watch']);
@@ -112,9 +115,6 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
       case HealthMetricType.height:
         return _daily(type, from, to, () => 170.0 + _rng.nextInt(15),
             source: 'Health Connect');
-      case HealthMetricType.bmi:
-        return _daily(type, from, to, () => 21.0 + _rng.nextDouble() * 6.0,
-            source: 'Health Connect');
       case HealthMetricType.bodyFat:
         return _daily(type, from, to, () => 15.0 + _rng.nextDouble() * 12.0,
             source: 'Health Connect');
@@ -135,9 +135,6 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
         return _nightly(type, from, to, () => 0.2 + _rng.nextDouble() * 0.6);
 
       // ── Wellness ────────────────────────────────────────────────────────
-      case HealthMetricType.water:
-        return _everyMinutes(type, from, to, 180,
-            () => 0.2 + _rng.nextDouble() * 0.35, sources: const ['iPhone']);
       case HealthMetricType.menstruationFlow:
         return _daily(type, from, to, () => _rng.nextInt(4).toDouble(),
             source: 'Health Connect');

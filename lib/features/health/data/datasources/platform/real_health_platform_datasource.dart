@@ -33,8 +33,15 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
   /// Maps our internal metric to the platform data type(s) to read.
   List<HealthDataType> _dataTypes(HealthMetricType type) => switch (type) {
         // Vitals
+        HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
         HealthMetricType.heartRate => [HealthDataType.HEART_RATE],
         HealthMetricType.restingHeartRate => [HealthDataType.RESTING_HEART_RATE],
+        // HRV: HealthKit exposes only SDNN, Health Connect only RMSSD. Map to
+        // whichever the platform provides — a given user is on one platform, so
+        // their series stays internally consistent.
+        HealthMetricType.heartRateVariability => Platform.isAndroid
+            ? [HealthDataType.HEART_RATE_VARIABILITY_RMSSD]
+            : [HealthDataType.HEART_RATE_VARIABILITY_SDNN],
         HealthMetricType.bloodOxygen => [HealthDataType.BLOOD_OXYGEN],
         HealthMetricType.respiratoryRate => [HealthDataType.RESPIRATORY_RATE],
         HealthMetricType.bloodPressureSystolic =>
@@ -42,7 +49,6 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         HealthMetricType.bloodPressureDiastolic =>
           [HealthDataType.BLOOD_PRESSURE_DIASTOLIC],
         HealthMetricType.bodyTemperature => [HealthDataType.BODY_TEMPERATURE],
-        HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
         // Activity
         HealthMetricType.steps => [HealthDataType.STEPS],
         HealthMetricType.activeEnergy => [HealthDataType.ACTIVE_ENERGY_BURNED],
@@ -52,7 +58,6 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         // Body
         HealthMetricType.weight => [HealthDataType.WEIGHT],
         HealthMetricType.height => [HealthDataType.HEIGHT],
-        HealthMetricType.bmi => [HealthDataType.BODY_MASS_INDEX],
         HealthMetricType.bodyFat => [HealthDataType.BODY_FAT_PERCENTAGE],
         HealthMetricType.leanBodyMass => [HealthDataType.LEAN_BODY_MASS],
         // Sleep — Health Connect devices write SLEEP_SESSION (total duration);
@@ -66,7 +71,6 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         HealthMetricType.sleepRem => [HealthDataType.SLEEP_REM],
         HealthMetricType.sleepAwake => [HealthDataType.SLEEP_AWAKE],
         // Wellness
-        HealthMetricType.water => [HealthDataType.WATER],
         HealthMetricType.menstruationFlow => [HealthDataType.MENSTRUATION_FLOW],
       };
 
