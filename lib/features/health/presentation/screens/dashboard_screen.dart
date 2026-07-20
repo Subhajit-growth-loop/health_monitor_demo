@@ -170,25 +170,15 @@ class DashboardScreen extends ConsumerWidget {
                   padding: EdgeInsets.only(top: 40.h),
                   child: Center(child: Text('Could not load data: $e')),
                 ),
-                data: (values) => GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12.r,
-                  crossAxisSpacing: 12.r,
-                  childAspectRatio: 1.12,
+                data: (values) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final type in HealthMetricType.values
-                        .where((t) => !t.hiddenFromDashboard))
-                      MetricCard(
-                        type: type,
-                        value: values[type] ?? 0,
-                        secondaryValue: type ==
-                                HealthMetricType.bloodPressureSystolic
-                            ? values[HealthMetricType.bloodPressureDiastolic]
-                            : null,
-                        granted: perms.isGranted(type),
-                        onTap: () => Navigator.of(context).push(
+                    for (final category in HealthCategory.values)
+                      _CategorySection(
+                        category: category,
+                        values: values,
+                        perms: perms,
+                        onOpen: (type) => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => MetricDetailScreen(type: type),
                           ),
@@ -203,6 +193,75 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One dashboard section per [HealthCategory]: a header followed by a grid of
+/// that category's (non-hidden) metric cards.
+class _CategorySection extends StatelessWidget {
+  const _CategorySection({
+    required this.category,
+    required this.values,
+    required this.perms,
+    required this.onOpen,
+    required this.onRequestPermission,
+  });
+
+  final HealthCategory category;
+  final Map<HealthMetricType, double> values;
+  final HealthPermissionState perms;
+  final void Function(HealthMetricType) onOpen;
+  final VoidCallback onRequestPermission;
+
+  @override
+  Widget build(BuildContext context) {
+    final types = HealthMetricType.values
+        .where((t) => t.category == category && !t.hiddenFromDashboard)
+        .toList(growable: false);
+    if (types.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 12.h),
+          child: Text(
+            category.label,
+            style: TextStyle(
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12.r,
+          crossAxisSpacing: 12.r,
+          childAspectRatio: 1.12,
+          children: [
+            for (final type in types)
+              MetricCard(
+                type: type,
+                value: values[type] ?? 0,
+                secondaryValue:
+                    type == HealthMetricType.bloodPressureSystolic
+                        ? values[HealthMetricType.bloodPressureDiastolic]
+                        : null,
+                granted: perms.isGranted(type),
+                onTap: () => onOpen(type),
+                onRequestPermission: onRequestPermission,
+              ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+      ],
     );
   }
 }

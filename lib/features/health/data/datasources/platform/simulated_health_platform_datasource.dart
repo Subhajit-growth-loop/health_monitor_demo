@@ -62,32 +62,85 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
   List<HealthRecordModel> _generate(
       HealthMetricType type, DateTime from, DateTime to) {
     switch (type) {
-      case HealthMetricType.steps:
-        return _hourly(type, from, to, () => 80 + _rng.nextInt(650),
-            sources: const ['iPhone', 'Apple Watch']);
-      case HealthMetricType.activeEnergy:
-        return _hourly(type, from, to, () => 8 + _rng.nextInt(75),
-            sources: const ['Apple Watch']);
+      // ── Vitals ──────────────────────────────────────────────────────────
       case HealthMetricType.heartRate:
         return _everyMinutes(type, from, to, 45,
             () => 58 + _rng.nextInt(52), sources: const ['Apple Watch']);
+      case HealthMetricType.restingHeartRate:
+        return _daily(type, from, to, () => 55.0 + _rng.nextInt(16),
+            source: 'Apple Watch');
       case HealthMetricType.bloodOxygen:
         return _everyMinutes(type, from, to, 180,
             () => 95 + _rng.nextInt(5), sources: const ['Apple Watch']);
-      case HealthMetricType.sleep:
-        return _nightly(type, from, to);
-      case HealthMetricType.weight:
-        return _daily(type, from, to,
-            () => 70.0 + _rng.nextDouble() * 15.0, source: 'Health Connect');
-      case HealthMetricType.bloodGlucose:
-        return _everyMinutes(type, from, to, 120,
-            () => 80 + _rng.nextInt(60), sources: const ['Health Connect']);
+      case HealthMetricType.respiratoryRate:
+        return _everyMinutes(type, from, to, 180,
+            () => 12 + _rng.nextInt(8), sources: const ['Apple Watch']);
       case HealthMetricType.bloodPressureSystolic:
         return _everyMinutes(type, from, to, 240,
             () => 110 + _rng.nextInt(30), sources: const ['Health Connect']);
       case HealthMetricType.bloodPressureDiastolic:
         return _everyMinutes(type, from, to, 240,
             () => 70 + _rng.nextInt(20), sources: const ['Health Connect']);
+      case HealthMetricType.bodyTemperature:
+        return _daily(type, from, to, () => 36.1 + _rng.nextDouble() * 1.1,
+            source: 'Health Connect');
+      case HealthMetricType.bloodGlucose:
+        return _everyMinutes(type, from, to, 120,
+            () => 80 + _rng.nextInt(60), sources: const ['Health Connect']);
+
+      // ── Activity ────────────────────────────────────────────────────────
+      case HealthMetricType.steps:
+        return _hourly(type, from, to, () => 80 + _rng.nextInt(650),
+            sources: const ['iPhone', 'Apple Watch']);
+      case HealthMetricType.activeEnergy:
+        return _hourly(type, from, to, () => 8 + _rng.nextInt(75),
+            sources: const ['Apple Watch']);
+      case HealthMetricType.basalEnergy:
+        return _hourly(type, from, to, () => 55 + _rng.nextInt(35),
+            sources: const ['Apple Watch']);
+      case HealthMetricType.totalCalories:
+        return _hourly(type, from, to, () => 70 + _rng.nextInt(110),
+            sources: const ['Apple Watch']);
+      case HealthMetricType.flightsClimbed:
+        return _hourly(type, from, to, () => _rng.nextInt(5),
+            sources: const ['iPhone']);
+
+      // ── Body ────────────────────────────────────────────────────────────
+      case HealthMetricType.weight:
+        return _daily(type, from, to,
+            () => 70.0 + _rng.nextDouble() * 15.0, source: 'Health Connect');
+      case HealthMetricType.height:
+        return _daily(type, from, to, () => 170.0 + _rng.nextInt(15),
+            source: 'Health Connect');
+      case HealthMetricType.bmi:
+        return _daily(type, from, to, () => 21.0 + _rng.nextDouble() * 6.0,
+            source: 'Health Connect');
+      case HealthMetricType.bodyFat:
+        return _daily(type, from, to, () => 15.0 + _rng.nextDouble() * 12.0,
+            source: 'Health Connect');
+      case HealthMetricType.leanBodyMass:
+        return _daily(type, from, to, () => 48.0 + _rng.nextDouble() * 14.0,
+            source: 'Health Connect');
+
+      // ── Sleep ───────────────────────────────────────────────────────────
+      case HealthMetricType.sleep:
+        return _nightly(type, from, to, () => 5.5 + _rng.nextDouble() * 3.0);
+      case HealthMetricType.sleepDeep:
+        return _nightly(type, from, to, () => 0.8 + _rng.nextDouble() * 1.2);
+      case HealthMetricType.sleepLight:
+        return _nightly(type, from, to, () => 3.0 + _rng.nextDouble() * 1.5);
+      case HealthMetricType.sleepRem:
+        return _nightly(type, from, to, () => 0.8 + _rng.nextDouble() * 1.4);
+      case HealthMetricType.sleepAwake:
+        return _nightly(type, from, to, () => 0.2 + _rng.nextDouble() * 0.6);
+
+      // ── Wellness ────────────────────────────────────────────────────────
+      case HealthMetricType.water:
+        return _everyMinutes(type, from, to, 180,
+            () => 0.2 + _rng.nextDouble() * 0.35, sources: const ['iPhone']);
+      case HealthMetricType.menstruationFlow:
+        return _daily(type, from, to, () => _rng.nextInt(4).toDouble(),
+            source: 'Health Connect');
     }
   }
 
@@ -153,15 +206,14 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
   }
 
   List<HealthRecordModel> _nightly(
-      HealthMetricType type, DateTime from, DateTime to) {
+      HealthMetricType type, DateTime from, DateTime to, double Function() hours) {
     final out = <HealthRecordModel>[];
     var day = DateTime(from.year, from.month, from.day);
     while (day.isBefore(to)) {
-      // One sleep session per night, logged at ~7am wake time.
+      // One sleep record per night, logged at ~7am wake time.
       final wake = day.add(const Duration(hours: 7));
       if (wake.isAfter(from) && wake.isBefore(to)) {
-        final hours = 5.5 + _rng.nextDouble() * 3.0;
-        out.add(_record(type, wake, double.parse(hours.toStringAsFixed(1)),
+        out.add(_record(type, wake, double.parse(hours().toStringAsFixed(1)),
             'Apple Watch'));
       }
       day = day.add(const Duration(days: 1));

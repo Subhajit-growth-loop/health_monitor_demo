@@ -32,21 +32,52 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
 
   /// Maps our internal metric to the platform data type(s) to read.
   List<HealthDataType> _dataTypes(HealthMetricType type) => switch (type) {
-        HealthMetricType.steps => [HealthDataType.STEPS],
+        // Vitals
         HealthMetricType.heartRate => [HealthDataType.HEART_RATE],
+        HealthMetricType.restingHeartRate => [HealthDataType.RESTING_HEART_RATE],
         HealthMetricType.bloodOxygen => [HealthDataType.BLOOD_OXYGEN],
+        HealthMetricType.respiratoryRate => [HealthDataType.RESPIRATORY_RATE],
+        HealthMetricType.bloodPressureSystolic =>
+          [HealthDataType.BLOOD_PRESSURE_SYSTOLIC],
+        HealthMetricType.bloodPressureDiastolic =>
+          [HealthDataType.BLOOD_PRESSURE_DIASTOLIC],
+        HealthMetricType.bodyTemperature => [HealthDataType.BODY_TEMPERATURE],
+        HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
+        // Activity
+        HealthMetricType.steps => [HealthDataType.STEPS],
         HealthMetricType.activeEnergy => [HealthDataType.ACTIVE_ENERGY_BURNED],
-        // Health Connect devices write SLEEP_SESSION (total duration); SLEEP_ASLEEP
-        // is a sub-stage record that most devices never populate separately.
-        // HealthKit has no SLEEP_SESSION — SLEEP_ASLEEP is the correct type there.
+        HealthMetricType.basalEnergy => [HealthDataType.BASAL_ENERGY_BURNED],
+        HealthMetricType.totalCalories => [HealthDataType.TOTAL_CALORIES_BURNED],
+        HealthMetricType.flightsClimbed => [HealthDataType.FLIGHTS_CLIMBED],
+        // Body
+        HealthMetricType.weight => [HealthDataType.WEIGHT],
+        HealthMetricType.height => [HealthDataType.HEIGHT],
+        HealthMetricType.bmi => [HealthDataType.BODY_MASS_INDEX],
+        HealthMetricType.bodyFat => [HealthDataType.BODY_FAT_PERCENTAGE],
+        HealthMetricType.leanBodyMass => [HealthDataType.LEAN_BODY_MASS],
+        // Sleep — Health Connect devices write SLEEP_SESSION (total duration);
+        // HealthKit has no SLEEP_SESSION, so SLEEP_ASLEEP is the total there.
+        // The stages (deep/light/rem/awake) exist on both platforms.
         HealthMetricType.sleep => Platform.isAndroid
             ? [HealthDataType.SLEEP_SESSION]
             : [HealthDataType.SLEEP_ASLEEP],
-        HealthMetricType.weight => [HealthDataType.WEIGHT],
-        HealthMetricType.bloodGlucose => [HealthDataType.BLOOD_GLUCOSE],
-        HealthMetricType.bloodPressureSystolic => [HealthDataType.BLOOD_PRESSURE_SYSTOLIC],
-        HealthMetricType.bloodPressureDiastolic => [HealthDataType.BLOOD_PRESSURE_DIASTOLIC],
+        HealthMetricType.sleepDeep => [HealthDataType.SLEEP_DEEP],
+        HealthMetricType.sleepLight => [HealthDataType.SLEEP_LIGHT],
+        HealthMetricType.sleepRem => [HealthDataType.SLEEP_REM],
+        HealthMetricType.sleepAwake => [HealthDataType.SLEEP_AWAKE],
+        // Wellness
+        HealthMetricType.water => [HealthDataType.WATER],
+        HealthMetricType.menstruationFlow => [HealthDataType.MENSTRUATION_FLOW],
       };
+
+  /// Sleep-stage metrics are all stored by the platform as durations (minutes).
+  static const _sleepMetrics = {
+    HealthMetricType.sleep,
+    HealthMetricType.sleepDeep,
+    HealthMetricType.sleepLight,
+    HealthMetricType.sleepRem,
+    HealthMetricType.sleepAwake,
+  };
 
   Future<void> _ensureConfigured() async {
     if (_configured) return;
@@ -144,7 +175,7 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
         final converted = _convert(metric, value);
         // Sleep sessions start the previous night; use dateTo (wake time) so the
         // record is attributed to the day the user woke up, not when they fell asleep.
-        final ts = metric == HealthMetricType.sleep ? p.dateTo : p.dateFrom;
+        final ts = _sleepMetrics.contains(metric) ? p.dateTo : p.dateFrom;
         final source = p.sourceName.isEmpty ? providerName : p.sourceName;
         out.add(HealthRecordModel(
           id: HealthRecord.buildId(
@@ -170,21 +201,26 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
   /// Unit normalization into the app's common schema.
   double _convert(HealthMetricType metric, double raw) {
     switch (metric) {
+      // Sleep durations come back in minutes; the app displays hours.
       case HealthMetricType.sleep:
-        // health returns sleep durations in minutes; app displays hours.
+      case HealthMetricType.sleepDeep:
+      case HealthMetricType.sleepLight:
+      case HealthMetricType.sleepRem:
+      case HealthMetricType.sleepAwake:
         return raw / 60.0;
+      // Fractions (0–1 on HealthKit) → percentages; Health Connect already %.
       case HealthMetricType.bloodOxygen:
-        // HealthKit reports SpO2 as a 0–1 fraction; Health Connect as a %.
+      case HealthMetricType.bodyFat:
         return raw <= 1.0 ? raw * 100.0 : raw;
+      // HealthKit reports glucose in mmol/L; Health Connect in mg/dL.
       case HealthMetricType.bloodGlucose:
-        // HealthKit reports in mmol/L; Health Connect in mg/dL. Convert accordingly.
         return Platform.isIOS ? raw * 18.0182 : raw;
-      case HealthMetricType.weight:
-      case HealthMetricType.steps:
-      case HealthMetricType.heartRate:
-      case HealthMetricType.activeEnergy:
-      case HealthMetricType.bloodPressureSystolic:
-      case HealthMetricType.bloodPressureDiastolic:
+      // Height comes back in metres on both platforms; the app displays cm.
+      // Guard against values already in cm so simulated data isn't double-scaled.
+      case HealthMetricType.height:
+        return raw < 3.0 ? raw * 100.0 : raw;
+      // Everything else is already in the display unit.
+      default:
         return raw;
     }
   }

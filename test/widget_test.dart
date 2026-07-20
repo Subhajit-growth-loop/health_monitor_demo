@@ -49,10 +49,23 @@ void main() {
     final reinserted = await local.upsertPending(samples);
     expect(reinserted, 0);
 
-    // Upload pending in one batch and mark synced.
-    final pending = await local.pending(limit: 1000);
-    final acceptedIds = await remote.uploadBatch(pending);
-    await local.markSynced(acceptedIds);
+    // Upload all pending in bounded batches and mark synced — mirrors the
+    // production synchronize() loop so a large backlog is fully drained. The
+    // mock backend injects a transient failure, so retry each batch like the
+    // SyncController does.
+    while (true) {
+      final pending = await local.pending(limit: 50);
+      if (pending.isEmpty) break;
+      List<String>? acceptedIds;
+      for (var attempt = 0; attempt < 5 && acceptedIds == null; attempt++) {
+        try {
+          acceptedIds = await remote.uploadBatch(pending);
+        } catch (_) {
+          // transient — retry
+        }
+      }
+      await local.markSynced(acceptedIds!);
+    }
     expect(await local.pendingCount(), 0);
   });
 
@@ -71,5 +84,37 @@ void main() {
 
     final summary = await local.todaySummary();
     expect(summary.containsKey(HealthMetricType.steps), isTrue);
+  });
+
+  test('every metric type flows through the pipeline and aggregates', () async {
+    final local = await newLocal();
+    final platform = SimulatedHealthPlatformDataSource();
+
+    await platform.requestPermissions(HealthMetricType.values);
+    final samples = await platform.fetchSamplesSince(
+      DateTime.now().subtract(const Duration(days: 7)),
+      HealthMetricType.values,
+    );
+    await local.upsertPending(samples);
+
+    // Every metric type should have produced at least one sample.
+    final typesWithData = samples.map((s) => s.type).toSet();
+    for (final type in HealthMetricType.values) {
+      expect(typesWithData.contains(type), isTrue,
+          reason: 'no samples generated for ${type.id}');
+    }
+
+    // Sanity-check normalized value ranges for a few converted metrics.
+    double latest(HealthMetricType t) =>
+        samples.where((s) => s.type == t).last.value;
+    expect(latest(HealthMetricType.height), inInclusiveRange(120, 250)); // cm
+    expect(latest(HealthMetricType.sleep), inInclusiveRange(0, 24)); // hours
+    expect(latest(HealthMetricType.bloodOxygen), inInclusiveRange(80, 100)); // %
+
+    // The summary must include every type after aggregation.
+    final summary = await local.todaySummary();
+    for (final type in HealthMetricType.values) {
+      expect(summary.containsKey(type), isTrue);
+    }
   });
 }

@@ -8,15 +8,37 @@
     <!-- Local notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Health Connect read permissions (design doc §8: granular per data type) -->
-    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <!-- Health Connect read permissions (design doc §8: granular per data type).
+         One permission per data type; the app requests the maximum set the
+         `health` package supports on both platforms. -->
+    <!-- Vitals -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE"/>
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION"/>
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
-    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
-    <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
-    <uses-permission android:name="android.permission.health.READ_BLOOD_GLUCOSE"/>
+    <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE"/>
     <uses-permission android:name="android.permission.health.READ_BLOOD_PRESSURE"/>
+    <uses-permission android:name="android.permission.health.READ_BODY_TEMPERATURE"/>
+    <uses-permission android:name="android.permission.health.READ_BLOOD_GLUCOSE"/>
+    <!-- Activity -->
+    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
+    <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE"/>
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/>
+    <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED"/>
+    <!-- Body -->
+    <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
+    <uses-permission android:name="android.permission.health.READ_HEIGHT"/>
+    <uses-permission android:name="android.permission.health.READ_BODY_FAT"/>
+    <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS"/>
+    <!-- Sleep (single permission covers session + all stages) -->
+    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
+    <!-- Wellness -->
+    <uses-permission android:name="android.permission.health.READ_HYDRATION"/>
+    <uses-permission android:name="android.permission.health.READ_MENSTRUATION"/>
+    <!-- Read history older than 30 days (initial 90-day backfill) and read while
+         the app is backgrounded (background sync task). -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY"/>
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
 
     <application
         android:label="health_monitor_demo"
