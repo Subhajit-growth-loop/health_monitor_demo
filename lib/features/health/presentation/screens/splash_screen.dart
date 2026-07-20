@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../core/notifications/notification_service.dart';
 import '../providers/permission_controller.dart';
 import 'dashboard_screen.dart';
+import 'sync_settings_screen.dart';
 
 /// Startup screen. While it is shown we request health permissions and run the
 /// first acquisition + sync, then route straight to the dashboard — no login.
@@ -36,6 +38,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
     );
+
+    // If a catch-up notification cold-started the app, route to the manual sync
+    // page on top of the dashboard and let it run the look-back.
+    final payload = await NotificationService.takeLaunchPayload();
+    if (payload == NotificationService.catchUpPayload && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const SyncSettingsScreen(autoLookBack: true),
+        ),
+      );
+    }
   }
 
   @override

@@ -7,6 +7,10 @@ import 'features/health/presentation/screens/splash_screen.dart';
 class HealthMonitorApp extends StatelessWidget {
   const HealthMonitorApp({super.key});
 
+  /// Lets the notification layer route (e.g. the 48h catch-up prompt) without a
+  /// BuildContext.
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
     // Design reference size (iPhone X logical points). ScreenUtil scales the
@@ -17,6 +21,7 @@ class HealthMonitorApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (context, child) => MaterialApp(
         title: 'Health Monitor',
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

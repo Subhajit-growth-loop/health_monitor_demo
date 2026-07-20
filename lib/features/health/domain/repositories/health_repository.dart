@@ -17,7 +17,10 @@ abstract interface class HealthRepository {
   /// Pull new samples from the native platform, normalize + de-duplicate them,
   /// and persist them locally tagged as pending-sync. Returns how many new
   /// records were written.
-  Future<int> refreshFromPlatform();
+  ///
+  /// [lookback] forces a re-read of the trailing window (e.g. 48h) instead of
+  /// resuming from the incremental cursor — used by the catch-up flow.
+  Future<int> refreshFromPlatform({Duration? lookback});
 
   /// The most recent records of a type, newest first (reads local DB only).
   Future<List<HealthRecord>> recordsForType(

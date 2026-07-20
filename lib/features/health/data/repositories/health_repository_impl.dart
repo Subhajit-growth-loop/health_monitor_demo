@@ -46,15 +46,20 @@ class HealthRepositoryImpl implements HealthRepository {
       _platform.currentPermissions();
 
   @override
-  Future<int> refreshFromPlatform() async {
+  Future<int> refreshFromPlatform({Duration? lookback}) async {
     final perms = await _platform.currentPermissions();
     final granted = HealthMetricType.collectible
         .where(perms.isGranted)
         .toList(growable: false);
     if (granted.isEmpty) return 0;
 
-    final samples =
-        await _platform.fetchSamplesSince(_lastPlatformRead, granted);
+    // Catch-up re-reads the trailing window; a normal refresh resumes from the
+    // incremental cursor. Stable ids make re-reading idempotent either way.
+    final since = lookback != null
+        ? DateTime.now().subtract(lookback)
+        : _lastPlatformRead;
+
+    final samples = await _platform.fetchSamplesSince(since, granted);
     final inserted = await _local.upsertPending(samples);
     _lastPlatformRead = DateTime.now();
     return inserted;

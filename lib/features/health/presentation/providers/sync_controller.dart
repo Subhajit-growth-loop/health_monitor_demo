@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/connectivity/connectivity_service.dart';
+import '../../../../core/settings/app_settings.dart';
 import '../../domain/repositories/health_repository.dart';
 import 'health_providers.dart';
 
@@ -45,14 +47,19 @@ class SyncState {
       );
 }
 
-/// Coordinates *when* synchronization happens (the resilience layer):
-/// connectivity changes, periodic interval, and manual/foreground triggers —
-/// combined so no single mechanism is a point of failure. Uploads retry with
-/// exponential backoff.
+/// Coordinates *when* foreground synchronization happens (the resilience layer):
+/// connectivity changes, a settings-driven periodic interval, app resume, and
+/// manual/foreground triggers — combined so no single mechanism is a point of
+/// failure. Uploads retry with exponential backoff.
+///
+/// The auto-sync toggle + interval here control the FOREGROUND timer only; the
+/// background WorkManager tasks are the separate resilience layer and run
+/// regardless (see health_background_service.dart).
 class SyncController extends Notifier<SyncState> {
   Timer? _periodic;
   StreamSubscription<bool>? _connSub;
   StreamSubscription<void>? _dbSub;
+  _LifecycleObserver? _lifecycle;
   bool _running = false;
 
   HealthRepository get _repo => ref.read(healthRepositoryProvider);
@@ -69,21 +76,35 @@ class SyncController extends Notifier<SyncState> {
       if (online) syncNow();
     });
 
-    // Periodic background sync interval.
-    _periodic = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => syncNow(),
-    );
+    // Fetch from the platform + sync whenever the app returns to the foreground.
+    _lifecycle = _LifecycleObserver(onResume: refreshData);
+    WidgetsBinding.instance.addObserver(_lifecycle!);
+
+    // (Re)configure the periodic timer from settings, and react to changes.
+    ref.listen(syncSettingsProvider, (_, next) => _configureTimer(next));
+    _configureTimer(ref.read(syncSettingsProvider));
 
     ref.onDispose(() {
       _periodic?.cancel();
       _connSub?.cancel();
       _dbSub?.cancel();
+      if (_lifecycle != null) {
+        WidgetsBinding.instance.removeObserver(_lifecycle!);
+      }
     });
 
     // Kick off initial pending count.
     _refreshPending();
     return SyncState(online: _conn.isOnline);
+  }
+
+  void _configureTimer(SyncSettings settings) {
+    _periodic?.cancel();
+    if (!settings.autoSync) return;
+    _periodic = Timer.periodic(
+      Duration(minutes: settings.intervalMinutes),
+      (_) => syncNow(),
+    );
   }
 
   Future<void> _refreshPending() async {
@@ -92,9 +113,18 @@ class SyncController extends Notifier<SyncState> {
   }
 
   /// Pull fresh samples from the platform into the local DB (acquisition),
-  /// then attempt a sync.
+  /// then attempt a sync. Used on app open/resume and manual refresh.
   Future<void> refreshData() async {
     await _repo.refreshFromPlatform();
+    await _refreshPending();
+    await syncNow();
+  }
+
+  /// Catch-up: force a re-read of the trailing [window] (default 48h) from the
+  /// platform, then sync. Used by the manual sync page and the 48h flow.
+  Future<void> lookBackSync(
+      {Duration window = const Duration(hours: 48)}) async {
+    await _repo.refreshFromPlatform(lookback: window);
     await _refreshPending();
     await syncNow();
   }
@@ -115,6 +145,7 @@ class SyncController extends Notifier<SyncState> {
       for (var attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           final synced = await _repo.synchronize();
+          await markSyncSuccess();
           state = state.copyWith(
             phase: SyncPhase.idle,
             lastSyncedCount: synced,
@@ -145,6 +176,18 @@ class SyncController extends Notifier<SyncState> {
   String _short(Object e) {
     final s = e.toString();
     return s.length > 60 ? '${s.substring(0, 60)}…' : s;
+  }
+}
+
+/// Bridges Flutter app-lifecycle callbacks to the controller so a resume
+/// triggers a fresh fetch + sync.
+class _LifecycleObserver extends WidgetsBindingObserver {
+  _LifecycleObserver({required this.onResume});
+  final Future<void> Function() onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResume();
   }
 }
 

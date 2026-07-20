@@ -15,6 +15,7 @@ import '../widgets/alert_banner.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/sync_status_bar.dart';
 import 'metric_detail_screen.dart';
+import 'sync_settings_screen.dart';
 
 Future<void> _handleGrantPermission(
   WidgetRef ref,
@@ -139,6 +140,13 @@ class DashboardScreen extends ConsumerWidget {
             onPressed: () =>
                 ref.read(syncControllerProvider.notifier).refreshData(),
             icon: const Icon(Icons.refresh_rounded),
+          ),
+          IconButton(
+            tooltip: 'Sync settings',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SyncSettingsScreen()),
+            ),
+            icon: const Icon(Icons.sync_rounded),
           ),
           SizedBox(width: 4.w),
         ],
