@@ -16,7 +16,7 @@ Future<void> main() async {
   final db = await openAppDatabase();
 
   // Initialize local notification channel and permissions.
-  await NotificationService.init();
+  await NotificationService.init(requestPermissions: true);
 
   // Register the periodic background health-alert task (WorkManager on Android,
   // background fetch on iOS). ExistingWorkPolicy.keep means this is a no-op on

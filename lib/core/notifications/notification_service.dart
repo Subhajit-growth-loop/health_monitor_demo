@@ -14,15 +14,22 @@ class NotificationService {
   static const _channelId = 'health_alerts';
   static const _channelName = 'Health Alerts';
 
-  static Future<void> init() async {
+  /// Initialize the plugin and notification channel.
+  ///
+  /// [requestPermissions] must only be true when running in the foreground
+  /// (an Activity is attached). Requesting the Android POST_NOTIFICATIONS
+  /// permission needs an Activity, so calling it from WorkManager's background
+  /// isolate throws a NullPointerException (Context is null). Background callers
+  /// rely on the permission already having been granted from the foreground.
+  static Future<void> init({bool requestPermissions = false}) async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+    final ios = DarwinInitializationSettings(
+      requestAlertPermission: requestPermissions,
+      requestBadgePermission: requestPermissions,
+      requestSoundPermission: requestPermissions,
     );
     await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
+      InitializationSettings(android: android, iOS: ios),
     );
 
     if (Platform.isAndroid) {
@@ -38,11 +45,14 @@ class NotificationService {
             ),
           );
 
-      // Request POST_NOTIFICATIONS permission (Android 13+).
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
+      // Request POST_NOTIFICATIONS permission (Android 13+). Only possible
+      // with an attached Activity, i.e. from the foreground.
+      if (requestPermissions) {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.requestNotificationsPermission();
+      }
     }
   }
 
