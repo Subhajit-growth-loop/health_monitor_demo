@@ -9,6 +9,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/health_metric_type.dart';
 import '../../domain/entities/permission_state.dart';
 import '../providers/dashboard_providers.dart';
+import '../providers/health_providers.dart';
 import '../providers/permission_controller.dart';
 import '../providers/sync_controller.dart';
 import '../widgets/alert_banner.dart';
@@ -29,6 +30,91 @@ Future<void> _handleGrantPermission(
   }
   await ref.read(permissionControllerProvider.notifier).requestAll();
 }
+
+/// Bottom sheet offering the two export delivery modes, then runs the chosen
+/// one and reports the outcome. Writes a JSON file in the `health` package's
+/// own record shape (works on both HealthKit and Health Connect).
+Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
+  final mode = await showModalBottomSheet<_ExportMode>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 8.h),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Export health data (JSON)',
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.ios_share_rounded),
+            title: const Text('Share'),
+            subtitle: const Text('Send via the share sheet or Save to Files'),
+            onTap: () => Navigator.of(sheetContext).pop(_ExportMode.share),
+          ),
+          ListTile(
+            leading: const Icon(Icons.save_alt_rounded),
+            title: const Text('Save to device'),
+            subtitle: const Text('Write the file to your device storage'),
+            onTap: () => Navigator.of(sheetContext).pop(_ExportMode.save),
+          ),
+          SizedBox(height: 8.h),
+        ],
+      ),
+    ),
+  );
+
+  if (mode == null || !context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  final service = ref.read(healthExportServiceProvider);
+  messenger.showSnackBar(
+    const SnackBar(content: Text('Preparing export…')),
+  );
+
+  try {
+    final export = mode == _ExportMode.share
+        ? await service.share()
+        : await service.save();
+    messenger.hideCurrentSnackBar();
+    if (export == null) {
+      // User dismissed the save picker — nothing to report.
+      return;
+    }
+    if (export.recordCount == 0) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No health data to export. Grant access and refresh first.',
+          ),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            mode == _ExportMode.save
+                ? 'Saved ${export.recordCount} records to device.'
+                : 'Exported ${export.recordCount} records.',
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Export failed: $e')),
+    );
+  }
+}
+
+enum _ExportMode { share, save }
 
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -135,6 +221,11 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Export health data as JSON',
+            onPressed: () => _handleExport(context, ref),
+            icon: const Icon(Icons.download_rounded),
+          ),
           IconButton(
             tooltip: 'Refresh from Health platform',
             onPressed: () =>

@@ -22,6 +22,14 @@ abstract interface class HealthRepository {
   /// resuming from the incremental cursor — used by the catch-up flow.
   Future<int> refreshFromPlatform({Duration? lookback});
 
+  /// Raw platform samples serialized in the `health` package's own JSON shape
+  /// (one `HealthDataPoint.toJson()` map per sample), pulled fresh from
+  /// HealthKit / Health Connect over the trailing [lookback] window. Backs the
+  /// on-device JSON export.
+  Future<List<Map<String, dynamic>>> exportRawPlatformJson({
+    Duration lookback = const Duration(days: 365),
+  });
+
   /// The most recent records of a type, newest first (reads local DB only).
   Future<List<HealthRecord>> recordsForType(
     HealthMetricType type, {

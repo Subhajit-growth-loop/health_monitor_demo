@@ -66,6 +66,20 @@ class HealthRepositoryImpl implements HealthRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> exportRawPlatformJson({
+    Duration lookback = const Duration(days: 365),
+  }) async {
+    final perms = await _platform.currentPermissions();
+    final granted = HealthMetricType.collectible
+        .where(perms.isGranted)
+        .toList(growable: false);
+    if (granted.isEmpty) return const [];
+
+    final since = DateTime.now().subtract(lookback);
+    return _platform.fetchRawJson(since, granted);
+  }
+
+  @override
   Future<List<HealthRecord>> recordsForType(HealthMetricType type,
           {int limit = 200}) =>
       _local.recordsForType(type, limit: limit);

@@ -26,4 +26,13 @@ abstract interface class HealthPlatformDataSource {
     DateTime since,
     List<HealthMetricType> grantedTypes,
   );
+
+  /// Read raw samples newer than [since] for the given granted types and return
+  /// them in the `health` package's own JSON shape (one
+  /// `HealthDataPoint.toJson()` map per sample) — i.e. before any normalization
+  /// or unit conversion. Backs the JSON export.
+  Future<List<Map<String, dynamic>>> fetchRawJson(
+    DateTime since,
+    List<HealthMetricType> grantedTypes,
+  );
 }

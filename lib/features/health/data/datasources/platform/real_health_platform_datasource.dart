@@ -196,6 +196,35 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
     return out;
   }
 
+  @override
+  Future<List<Map<String, dynamic>>> fetchRawJson(
+    DateTime since,
+    List<HealthMetricType> grantedTypes,
+  ) async {
+    await _ensureConfigured();
+    if (grantedTypes.isEmpty) return const [];
+
+    final now = DateTime.now();
+    final points = <HealthDataPoint>[];
+
+    for (final metric in grantedTypes) {
+      try {
+        points.addAll(await _health.getHealthDataFromTypes(
+          types: _dataTypes(metric),
+          startTime: since,
+          endTime: now,
+        ));
+      } catch (_) {
+        continue; // degrade gracefully per metric
+      }
+    }
+
+    // Collapse overlapping samples using the package's own de-duplication so
+    // the export mirrors what a normal read would ingest.
+    final deduped = _health.removeDuplicates(points);
+    return deduped.map((p) => p.toJson()).toList(growable: false);
+  }
+
   double? _numericValue(HealthDataPoint p) {
     final v = p.value;
     if (v is NumericHealthValue) return v.numericValue.toDouble();

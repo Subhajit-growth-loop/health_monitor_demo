@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../../core/connectivity/connectivity_service.dart';
+import '../../../../core/export/health_export_service.dart';
 import '../../data/datasources/local/health_local_datasource.dart';
 import '../../data/datasources/platform/health_platform_datasource.dart';
 import '../../data/datasources/platform/real_health_platform_datasource.dart';
@@ -63,6 +64,11 @@ final healthRepositoryProvider = Provider<HealthRepository>((ref) {
     remote: ref.watch(remoteDataSourceProvider),
     connectivity: ref.watch(connectivityServiceProvider),
   );
+});
+
+/// Builds and delivers the on-device JSON export (share sheet / save-to-file).
+final healthExportServiceProvider = Provider<HealthExportService>((ref) {
+  return HealthExportService(ref.watch(healthRepositoryProvider));
 });
 
 /// Emits whenever the local database (the source of truth) changes, so the

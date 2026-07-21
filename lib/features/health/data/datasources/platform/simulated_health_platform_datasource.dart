@@ -59,6 +59,81 @@ class SimulatedHealthPlatformDataSource implements HealthPlatformDataSource {
     return _deduplicate(raw);
   }
 
+  @override
+  Future<List<Map<String, dynamic>>> fetchRawJson(
+    DateTime since,
+    List<HealthMetricType> grantedTypes,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    final now = DateTime.now();
+    final earliest = now.subtract(const Duration(days: 7));
+    final cursor = since.isBefore(earliest) ? earliest : since;
+
+    final raw = <HealthRecordModel>[];
+    for (final type in grantedTypes) {
+      raw.addAll(_generate(type, cursor, now));
+    }
+    // Mirror the `health` package's HealthDataPoint.toJson() shape so the
+    // export looks identical whether it came from a real platform or here.
+    return _deduplicate(raw).map(_toHealthPackageJson).toList(growable: false);
+  }
+
+  /// Native platform data type + unit strings for each metric, matching the
+  /// `health` package's enum names (see dataTypeToUnit).
+  static const _rawTypeUnit = <HealthMetricType, (String, String)>{
+    HealthMetricType.bloodGlucose: ('BLOOD_GLUCOSE', 'MILLIGRAM_PER_DECILITER'),
+    HealthMetricType.heartRate: ('HEART_RATE', 'BEATS_PER_MINUTE'),
+    HealthMetricType.restingHeartRate:
+        ('RESTING_HEART_RATE', 'BEATS_PER_MINUTE'),
+    HealthMetricType.heartRateVariability:
+        ('HEART_RATE_VARIABILITY_SDNN', 'MILLISECOND'),
+    HealthMetricType.bloodOxygen: ('BLOOD_OXYGEN', 'PERCENT'),
+    HealthMetricType.respiratoryRate:
+        ('RESPIRATORY_RATE', 'RESPIRATIONS_PER_MINUTE'),
+    HealthMetricType.bloodPressureSystolic:
+        ('BLOOD_PRESSURE_SYSTOLIC', 'MILLIMETER_OF_MERCURY'),
+    HealthMetricType.bloodPressureDiastolic:
+        ('BLOOD_PRESSURE_DIASTOLIC', 'MILLIMETER_OF_MERCURY'),
+    HealthMetricType.bodyTemperature: ('BODY_TEMPERATURE', 'DEGREE_CELSIUS'),
+    HealthMetricType.steps: ('STEPS', 'COUNT'),
+    HealthMetricType.activeEnergy: ('ACTIVE_ENERGY_BURNED', 'KILOCALORIE'),
+    HealthMetricType.basalEnergy: ('BASAL_ENERGY_BURNED', 'KILOCALORIE'),
+    HealthMetricType.totalCalories: ('TOTAL_CALORIES_BURNED', 'KILOCALORIE'),
+    HealthMetricType.flightsClimbed: ('FLIGHTS_CLIMBED', 'COUNT'),
+    HealthMetricType.weight: ('WEIGHT', 'KILOGRAM'),
+    HealthMetricType.height: ('HEIGHT', 'METER'),
+    HealthMetricType.bodyFat: ('BODY_FAT_PERCENTAGE', 'PERCENT'),
+    HealthMetricType.leanBodyMass: ('LEAN_BODY_MASS', 'KILOGRAM'),
+    HealthMetricType.sleep: ('SLEEP_ASLEEP', 'MINUTE'),
+    HealthMetricType.sleepDeep: ('SLEEP_DEEP', 'MINUTE'),
+    HealthMetricType.sleepLight: ('SLEEP_LIGHT', 'MINUTE'),
+    HealthMetricType.sleepRem: ('SLEEP_REM', 'MINUTE'),
+    HealthMetricType.sleepAwake: ('SLEEP_AWAKE', 'MINUTE'),
+    HealthMetricType.menstruationFlow: ('MENSTRUATION_FLOW', 'NO_UNIT'),
+  };
+
+  Map<String, dynamic> _toHealthPackageJson(HealthRecordModel r) {
+    final (typeString, unitString) =
+        _rawTypeUnit[r.type] ?? (r.type.id.toUpperCase(), 'NO_UNIT');
+    final iso = r.timestamp.toUtc().toIso8601String();
+    final isAppleSource =
+        r.source == 'Apple Watch' || r.source == 'iPhone';
+    return {
+      'uuid': r.id,
+      'value': {'numericValue': r.value},
+      'type': typeString,
+      'unit': unitString,
+      'dateFrom': iso,
+      'dateTo': iso,
+      'sourcePlatform':
+          isAppleSource ? 'appleHealth' : 'googleHealthConnect',
+      'sourceDeviceId': 'simulated-device',
+      'sourceId': '',
+      'sourceName': r.source,
+      'recordingMethod': 'automatic',
+    };
+  }
+
   List<HealthRecordModel> _generate(
       HealthMetricType type, DateTime from, DateTime to) {
     switch (type) {
