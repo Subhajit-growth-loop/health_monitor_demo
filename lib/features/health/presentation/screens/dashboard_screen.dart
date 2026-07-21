@@ -100,8 +100,8 @@ Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
         SnackBar(
           content: Text(
             mode == _ExportMode.save
-                ? 'Saved ${export.recordCount} records to device.'
-                : 'Exported ${export.recordCount} records.',
+                ? 'Saved ${export.recordCount} records (${export.sizeLabel}) to device.'
+                : 'Exported ${export.recordCount} records (${export.sizeLabel}).',
           ),
         ),
       );
@@ -178,11 +178,14 @@ class DashboardScreen extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          dateLabel,
-                          style: TextStyle(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            dateLabel,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         Icon(Icons.arrow_drop_down_rounded, size: 20.r),

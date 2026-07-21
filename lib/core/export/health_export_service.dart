@@ -12,6 +12,17 @@ class HealthExport {
   const HealthExport({required this.json, required this.recordCount});
   final String json;
   final int recordCount;
+
+  /// Encoded size of the JSON payload in bytes (UTF-8).
+  int get sizeBytes => utf8.encode(json).length;
+
+  /// Human-readable size, e.g. "1.2 MB" or "834 KB".
+  String get sizeLabel {
+    final b = sizeBytes;
+    if (b < 1024) return '$b B';
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)} KB';
+    return '${(b / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
 }
 
 /// Builds a JSON snapshot of the device's health data — pulled fresh from
