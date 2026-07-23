@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:sqflite/sqflite.dart';
 
@@ -42,23 +43,59 @@ class HealthLocalDataSource {
         'CREATE INDEX IF NOT EXISTS idx_sync ON $table(sync_status)');
   }
 
-  /// Insert new normalized records. Uses INSERT OR IGNORE keyed on the stable
-  /// id so duplicates (same type+timestamp+source) are dropped at the storage
-  /// boundary. Returns the count actually inserted.
+  /// Insert new normalized records, keyed on the stable id (type+timestamp+
+  /// source). A brand-new reading is inserted as pending; a reading whose value
+  /// was **edited** in the source app (same id, different value) has its value
+  /// updated and is re-marked pending so the change re-syncs. Unchanged rows are
+  /// left untouched — their sync status is preserved, avoiding a re-upload storm
+  /// when a refresh re-reads the trailing window. Returns the count changed.
   Future<int> upsertPending(List<HealthRecordModel> records) async {
     if (records.isEmpty) return 0;
-    var inserted = 0;
+
+    // Load current values for the incoming ids so we can tell new / edited /
+    // unchanged apart. Chunked to stay under SQLite's bound-variable limit.
+    final existing = <String, double>{};
+    const chunk = 500;
+    for (var i = 0; i < records.length; i += chunk) {
+      final slice = records.sublist(i, math.min(i + chunk, records.length));
+      final placeholders = List.filled(slice.length, '?').join(',');
+      final rows = await _db.query(
+        table,
+        columns: ['id', 'value'],
+        where: 'id IN ($placeholders)',
+        whereArgs: [for (final r in slice) r.id],
+      );
+      for (final row in rows) {
+        existing[row['id'] as String] = (row['value'] as num).toDouble();
+      }
+    }
+
+    var changed = 0;
     final batch = _db.batch();
     for (final r in records) {
-      batch.insert(table, r.toDb(),
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      final prev = existing[r.id];
+      if (prev == null) {
+        // New reading. ignore guards against duplicate ids within this batch.
+        batch.insert(table, r.toDb(),
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+        changed++;
+      } else if (prev != r.value) {
+        // Value edited upstream — update and re-mark pending so it re-syncs.
+        batch.update(
+          table,
+          {'value': r.value, 'sync_status': SyncStatus.pending.value},
+          where: 'id = ?',
+          whereArgs: [r.id],
+        );
+        changed++;
+      }
+      // else: identical to what we already have — skip, preserve sync status.
     }
-    final results = await batch.commit();
-    for (final res in results) {
-      if (res is int && res > 0) inserted++;
-    }
-    if (inserted > 0) _notify();
-    return inserted;
+
+    if (changed == 0) return 0;
+    await batch.commit(noResult: true);
+    _notify();
+    return changed;
   }
 
   /// Merge records pulled from the backend. These already carry a synced

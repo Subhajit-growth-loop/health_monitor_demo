@@ -36,6 +36,14 @@ class HealthRepositoryImpl implements HealthRepository {
   DateTime _lastRemotePull =
       DateTime.now().subtract(const Duration(days: 30));
 
+  // Every routine refresh re-reads at least this trailing window, regardless of
+  // how far the incremental cursor has advanced. Health Connect / HealthKit key
+  // records by *measurement* time, so a reading added or edited now but
+  // timestamped earlier (manual entry, back-dated log, delayed wearable sync)
+  // sits behind the cursor and would otherwise only surface after an app
+  // restart (which resets the cursor). Re-reads are idempotent (stable ids).
+  static const _refreshWindow = Duration(days: 7);
+
   @override
   Future<HealthPermissionState> requestPermissions(
           List<HealthMetricType> types) =>
@@ -53,15 +61,23 @@ class HealthRepositoryImpl implements HealthRepository {
         .toList(growable: false);
     if (granted.isEmpty) return 0;
 
-    // Catch-up re-reads the trailing window; a normal refresh resumes from the
-    // incremental cursor. Stable ids make re-reading idempotent either way.
-    final since = lookback != null
-        ? DateTime.now().subtract(lookback)
-        : _lastPlatformRead;
+    // Catch-up re-reads an explicit trailing window. A normal refresh reads
+    // from the incremental cursor but never less than [_refreshWindow] back, so
+    // recently added/edited-but-past-dated readings are picked up without an app
+    // restart. Stable ids make re-reading idempotent either way.
+    final now = DateTime.now();
+    final DateTime since;
+    if (lookback != null) {
+      since = now.subtract(lookback);
+    } else {
+      final windowStart = now.subtract(_refreshWindow);
+      since =
+          _lastPlatformRead.isBefore(windowStart) ? _lastPlatformRead : windowStart;
+    }
 
     final samples = await _platform.fetchSamplesSince(since, granted);
     final inserted = await _local.upsertPending(samples);
-    _lastPlatformRead = DateTime.now();
+    _lastPlatformRead = now;
     return inserted;
   }
 
