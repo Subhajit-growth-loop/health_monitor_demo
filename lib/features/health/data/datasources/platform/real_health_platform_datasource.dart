@@ -228,8 +228,26 @@ class RealHealthPlatformDataSource implements HealthPlatformDataSource {
   double? _numericValue(HealthDataPoint p) {
     final v = p.value;
     if (v is NumericHealthValue) return v.numericValue.toDouble();
+    // Menstruation flow is categorical (MenstruationFlowHealthValue), not a
+    // NumericHealthValue — without this it fell through to null and every
+    // sample was dropped during normalization. Map the flow level onto the
+    // 0–3 intensity scale the app uses (matching the simulated datasource).
+    if (v is MenstruationFlowHealthValue) return _menstruationIntensity(v.flow);
     return null;
   }
+
+  /// Flow level → ordinal intensity (0 none … 3 heavy). Returns null only when
+  /// the platform gives no flow at all, so the sample is dropped rather than
+  /// recorded as a phantom zero.
+  double? _menstruationIntensity(MenstrualFlow? flow) => switch (flow) {
+        MenstrualFlow.heavy => 3,
+        MenstrualFlow.medium => 2,
+        MenstrualFlow.light => 1,
+        MenstrualFlow.spotting => 1,
+        MenstrualFlow.none => 0,
+        MenstrualFlow.unspecified => 0,
+        null => null,
+      };
 
   /// Unit normalization into the app's common schema.
   double _convert(HealthMetricType metric, double raw) {

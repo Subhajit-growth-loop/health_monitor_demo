@@ -7,15 +7,37 @@ class Fmt {
   Fmt._();
 
   static String metricValue(HealthMetricType type, double value) {
+    // Menstruation flow is categorical, not numeric — show the flow level as a
+    // word so a bare "2" doesn't reach the user (the type carries no unit).
+    if (type == HealthMetricType.menstruationFlow) {
+      return menstruationFlowLabel(value);
+    }
     if (type.decimals == 0) {
       return NumberFormat.decimalPattern().format(value.round());
     }
     return value.toStringAsFixed(type.decimals);
   }
 
+  /// Maps the 0–3 menstruation intensity onto its human-readable flow level.
+  static String menstruationFlowLabel(double value) => switch (value.round()) {
+        >= 3 => 'Heavy',
+        2 => 'Medium',
+        1 => 'Light',
+        _ => 'None',
+      };
+
   /// Compact label for Y-axis ticks: no locale separators, "k" suffix for
   /// values ≥ 1000, respects the type's decimal precision otherwise.
   static String yAxisLabel(HealthMetricType type, double value) {
+    // Categorical flow levels get short single-letter ticks (H/M/L/—).
+    if (type == HealthMetricType.menstruationFlow) {
+      return switch (value.round()) {
+        >= 3 => 'H',
+        2 => 'M',
+        1 => 'L',
+        _ => '—',
+      };
+    }
     if (type.decimals == 0) {
       final n = value.round();
       if (n >= 1000) {

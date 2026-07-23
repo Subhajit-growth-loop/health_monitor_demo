@@ -29,7 +29,7 @@ class MetricDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _MetricDetailScreenState extends ConsumerState<MetricDetailScreen> {
-  _ChartPeriod _period = _ChartPeriod.week;
+  _ChartPeriod _period = _ChartPeriod.month;
 
   bool get _isBP =>
       widget.type == HealthMetricType.bloodPressureSystolic;
