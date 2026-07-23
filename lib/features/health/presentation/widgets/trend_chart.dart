@@ -223,6 +223,7 @@ class _TrendChartState extends State<TrendChart> {
             context,
             _buildLine(context, showLeftTitles: false),
             (widget.points.length * 32.0).w,
+            leftInset: 12.w,
           );
         }),
       ),
@@ -391,11 +392,17 @@ class _TrendChartState extends State<TrendChart> {
 
   /// Wraps a label-less [plot] of width [chartWidth] in a horizontal scroll
   /// view with the pinned Y-axis strip fixed to its left.
+  ///
+  /// [leftInset] pads the scroll content on the left so edge-pinned content
+  /// (the line chart pins its first point/label to minX) isn't clipped by the
+  /// viewport edge — mirrors the trailing 16.w pad. Bar charts leave it at 0
+  /// since BarChartAlignment.spaceAround already insets the first bar.
   Widget _scrollableWithPinnedAxis(
     BuildContext context,
     Widget plot,
-    double chartWidth,
-  ) =>
+    double chartWidth, {
+    double leftInset = 0,
+  }) =>
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -404,7 +411,7 @@ class _TrendChartState extends State<TrendChart> {
             child: SingleChildScrollView(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.only(right: 16.w),
+              padding: EdgeInsets.only(left: leftInset, right: 16.w),
               child: SizedBox(width: chartWidth, child: plot),
             ),
           ),
