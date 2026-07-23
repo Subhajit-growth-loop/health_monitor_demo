@@ -421,6 +421,7 @@ class _TrendChartState extends State<TrendChart> {
   // ── Bar chart ──────────────────────────────────────────────────────────────
 
   Widget _buildBars(BuildContext context, {bool showLeftTitles = true}) {
+    final hasSelection = _selectedBarIndex != null;
     return BarChart(
       BarChartData(
         maxY: _yAxis.max,
@@ -457,15 +458,26 @@ class _TrendChartState extends State<TrendChart> {
             BarChartGroupData(
               x: i,
               barRods: [
-                BarChartRodData(
-                  toY: widget.points[i].value,
-                  // Highlight selected bar; dim the rest for contrast.
-                  color: i == _selectedBarIndex
-                      ? widget.type.color
-                      : widget.type.color.withValues(alpha: 0.55),
-                  width: _barWidth,
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
+                () {
+                  final isSelected = i == _selectedBarIndex;
+                  return BarChartRodData(
+                    toY: widget.points[i].value,
+                    // Default: every bar solid. On selection: keep the chosen
+                    // bar solid, a bit wider, and outlined; fade the rest so the
+                    // selected one clearly stands out.
+                    color: !hasSelection || isSelected
+                        ? widget.type.color
+                        : widget.type.color.withValues(alpha: 0.3),
+                    width: isSelected ? _barWidth + 4.w : _barWidth,
+                    borderRadius: BorderRadius.circular(6.r),
+                    borderSide: isSelected
+                        ? BorderSide(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            width: 1.5,
+                          )
+                        : BorderSide.none,
+                  );
+                }(),
               ],
             ),
         ],
@@ -478,11 +490,26 @@ class _TrendChartState extends State<TrendChart> {
   Widget _buildLine(BuildContext context, {bool showLeftTitles = true}) {
     final scheme = Theme.of(context).colorScheme;
 
+    // Which spot index shows the selection indicator (vertical line + marker)
+    // on each bar. fl_chart only draws indicators for indexes listed in a bar's
+    // showingIndicators — skip gap days (value 0 → nullSpot) that have no point.
+    final xi = _selectedLineIndex;
+    final selectable = xi != null && xi >= 0 && xi < widget.points.length;
+    final primaryIndicators =
+        selectable && widget.points[xi].value > 0 ? [xi] : const <int>[];
+    final secondaryIndicators = selectable &&
+            _hasTwoLines &&
+            xi < widget.secondaryPoints!.length &&
+            widget.secondaryPoints![xi].value > 0
+        ? [xi]
+        : const <int>[];
+
     // Build bar data first so they can be referenced in showingTooltipIndicators.
-    final primaryBar = _lineBar(widget.points, widget.type.color);
+    final primaryBar = _lineBar(widget.points, widget.type.color,
+        indicators: primaryIndicators);
     final secondaryBar = _hasTwoLines
         ? _lineBar(widget.secondaryPoints!, widget.secondaryType!.color,
-            dashed: true)
+            dashed: true, indicators: secondaryIndicators)
         : null;
     final lineBarsData = [
       primaryBar,
@@ -535,11 +562,42 @@ class _TrendChartState extends State<TrendChart> {
           // Built-in touches disabled; we drive tooltip visibility via
           // showingTooltipIndicators so it persists after the finger lifts.
           handleBuiltInTouches: false,
+          // Make the selected point obvious: a dashed vertical guide dropping
+          // to the axis plus an enlarged white dot ringed in the line colour,
+          // so it stands out from the plain points along the line.
+          getTouchedSpotIndicator: (barData, spotIndexes) {
+            final lineColor = barData.color ?? widget.type.color;
+            return spotIndexes
+                .map(
+                  (_) => TouchedSpotIndicatorData(
+                    // The vertical selection line in the metric's full colour so
+                    // the selected x-position stands out clearly.
+                    FlLine(
+                      color: lineColor,
+                      strokeWidth: 2.5,
+                    ),
+                    FlDotData(
+                      show: true,
+                      getDotPainter: (spot, pct, bar, idx) =>
+                          FlDotCirclePainter(
+                        radius: 6.r,
+                        color: Colors.white,
+                        strokeWidth: 3.5,
+                        strokeColor: lineColor,
+                      ),
+                    ),
+                  ),
+                )
+                .toList();
+          },
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => scheme.inverseSurface,
             tooltipPadding:
                 EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
             tooltipRoundedRadius: 10.r,
+            // Accent border in the metric colour ties the popup to the
+            // highlighted point so it clearly reads as the selected reading.
+            tooltipBorder: BorderSide(color: widget.type.color, width: 1.5),
             fitInsideHorizontally: true,
             fitInsideVertically: true,
             getTooltipItems: (spots) {
@@ -596,8 +654,12 @@ class _TrendChartState extends State<TrendChart> {
     List<DailyPoint> pts,
     Color color, {
     bool dashed = false,
+    List<int> indicators = const [],
   }) =>
       LineChartBarData(
+        // Spot indexes that render the selection indicator (vertical line +
+        // enlarged marker), styled by getTouchedSpotIndicator.
+        showingIndicators: indicators,
         spots: [
           // Days with no reading aggregate to 0; render them as gaps (nullSpot)
           // rather than plotting a point at y=0 that dives off the chart. The
