@@ -96,7 +96,8 @@ class HealthExportService {
   String _fileName({bool withExtension = true}) {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
-    final stamp = '${now.year}${two(now.month)}${two(now.day)}'
+    final stamp =
+        '${now.year}${two(now.month)}${two(now.day)}'
         '_${two(now.hour)}${two(now.minute)}${two(now.second)}';
     final base = 'health_export_$stamp';
     return withExtension ? '$base.json' : base;

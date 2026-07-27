@@ -36,6 +36,9 @@ dependencies:
   flutter_screenutil: ^5.9.3
   health: ^13.3.1
   http: ^1.6.0
+  dio: ^5.7.0
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
   url_launcher: ^6.3.1
 
   # Background alerts
@@ -53,3 +56,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/

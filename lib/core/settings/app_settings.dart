@@ -26,9 +26,9 @@ class SyncSettings {
   final int intervalMinutes;
 
   SyncSettings copyWith({bool? autoSync, int? intervalMinutes}) => SyncSettings(
-        autoSync: autoSync ?? this.autoSync,
-        intervalMinutes: intervalMinutes ?? this.intervalMinutes,
-      );
+    autoSync: autoSync ?? this.autoSync,
+    intervalMinutes: intervalMinutes ?? this.intervalMinutes,
+  );
 }
 
 /// Record a successful sync. Safe to call from the background isolate — opens
@@ -36,7 +36,9 @@ class SyncSettings {
 Future<void> markSyncSuccess() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setInt(
-      SyncPrefsKeys.lastSuccessfulSyncMs, DateTime.now().millisecondsSinceEpoch);
+    SyncPrefsKeys.lastSuccessfulSyncMs,
+    DateTime.now().millisecondsSinceEpoch,
+  );
 }
 
 /// The timestamp of the last successful sync, or null if it has never synced.
@@ -48,7 +50,8 @@ Future<DateTime?> readLastSuccessfulSync() async {
 
 /// Provides the opened [SharedPreferences]. Overridden in `main()` once loaded.
 final sharedPreferencesProvider = Provider<SharedPreferences>(
-  (ref) => throw UnimplementedError('sharedPreferencesProvider must be overridden'),
+  (ref) =>
+      throw UnimplementedError('sharedPreferencesProvider must be overridden'),
 );
 
 /// Owns the persisted [SyncSettings] and writes changes straight through to
@@ -60,12 +63,15 @@ class SyncSettingsController extends Notifier<SyncSettings> {
     return SyncSettings(
       autoSync: prefs.getBool(SyncPrefsKeys.autoSync) ?? true,
       intervalMinutes:
-          prefs.getInt(SyncPrefsKeys.intervalMinutes) ?? kDefaultSyncIntervalMinutes,
+          prefs.getInt(SyncPrefsKeys.intervalMinutes) ??
+          kDefaultSyncIntervalMinutes,
     );
   }
 
   Future<void> setAutoSync(bool value) async {
-    await ref.read(sharedPreferencesProvider).setBool(SyncPrefsKeys.autoSync, value);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setBool(SyncPrefsKeys.autoSync, value);
     state = state.copyWith(autoSync: value);
   }
 
@@ -78,4 +84,6 @@ class SyncSettingsController extends Notifier<SyncSettings> {
 }
 
 final syncSettingsProvider =
-    NotifierProvider<SyncSettingsController, SyncSettings>(SyncSettingsController.new);
+    NotifierProvider<SyncSettingsController, SyncSettings>(
+      SyncSettingsController.new,
+    );

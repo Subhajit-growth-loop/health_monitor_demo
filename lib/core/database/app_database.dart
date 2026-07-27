@@ -12,8 +12,7 @@ import '../../features/health/data/datasources/local/health_local_datasource.dar
 /// In production this would be an encrypted database (e.g. SQLCipher); the
 /// open call is the only line that changes.
 Future<Database> openAppDatabase() async {
-  final isDesktop =
-      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+  final isDesktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
   late final DatabaseFactory factory;
   late final String path;

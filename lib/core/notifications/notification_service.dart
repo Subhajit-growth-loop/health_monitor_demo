@@ -59,8 +59,10 @@ class NotificationService {
     );
 
     if (Platform.isAndroid) {
-      final android = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await android?.createNotificationChannel(
         const AndroidNotificationChannel(
           _channelId,
@@ -238,7 +240,10 @@ class NotificationService {
       _catchupNotifId,
       'Health data is behind',
       'It’s been over 48 hours since your last sync. Tap to catch up.',
-      const NotificationDetails(android: android, iOS: DarwinNotificationDetails()),
+      const NotificationDetails(
+        android: android,
+        iOS: DarwinNotificationDetails(),
+      ),
       payload: catchUpPayload,
     );
   }

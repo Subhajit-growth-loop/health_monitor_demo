@@ -7,11 +7,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
+import '../../../../../core/theme/neu_typography.dart';
 import '../../../health/presentation/screens/dashboard_screen.dart';
 import '../widgets/neu_dot_indicator.dart';
 import '../widgets/neu_logo.dart';
 import 'neu_feature_screens.dart';
 import 'neu_login_screen.dart';
+import 'neu_onboarding_flow_screen.dart';
 
 class NeuSplashScreen extends ConsumerStatefulWidget {
   const NeuSplashScreen({super.key});
@@ -48,19 +50,24 @@ class _NeuSplashScreenState extends ConsumerState<NeuSplashScreen> {
     final prefs = ref.read(sharedPreferencesProvider);
     final email = prefs.getString('neu_email') ?? '';
     final token = prefs.getString('neu_token') ?? '';
+    final onboardingComplete =
+        prefs.getBool('neu_onboarding_complete') ?? false;
 
     final Widget destination;
     if (email.isEmpty) {
       destination = const NeuFeatureScreens();
     } else if (token.isEmpty) {
       destination = const NeuLoginScreen();
+    } else if (!onboardingComplete) {
+      // Signed up but did not finish onboarding — resume it.
+      destination = const NeuOnboardingFlowScreen();
     } else {
       destination = const DashboardScreen();
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => destination),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => destination));
   }
 
   @override
@@ -78,41 +85,41 @@ class _NeuSplashScreenState extends ConsumerState<NeuSplashScreen> {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // Subtle decorative ring (replace with image asset later)
-            Positioned(
-              bottom: -80,
-              right: -80,
-              child: _DecorativeRing(size: 340),
-            ),
-            Positioned(
-              bottom: -120,
-              right: -120,
-              child: _DecorativeRing(size: 480),
+            // Full-bleed splash background image.
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/splash_bg.png',
+                fit: BoxFit.cover,
+              ),
             ),
             // Content
             Column(
               children: [
                 const Spacer(flex: 2),
-                NeuLogo(size: 108.r, color: Colors.white),
-                SizedBox(height: 28.h),
+                NeuLogo(
+                  size: 90.r,
+                  asset: 'assets/icons/logo_white.png',
+                  tint: false,
+                ),
+                SizedBox(height: 24.h),
                 Text(
                   'Neu Health',
-                  style: TextStyle(
+                  style: NeuTypography.serif(
                     color: Colors.white,
-                    fontSize: 36.sp,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 32.sp,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: 12.h),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 40.w),
                   child: Text(
-                    'Your metabolic health, finally precise.',
+                    'Your metabolic health, finally\nprecise.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 17.sp,
+                    style: NeuTypography.serif(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 16.sp,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
                     ),
@@ -134,26 +141,6 @@ class _NeuSplashScreenState extends ConsumerState<NeuSplashScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DecorativeRing extends StatelessWidget {
-  const _DecorativeRing({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 1.5,
         ),
       ),
     );

@@ -7,7 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 /// behaviour without physically disabling the network.
 class ConnectivityService {
   ConnectivityService({Connectivity? connectivity})
-      : _connectivity = connectivity ?? Connectivity() {
+    : _connectivity = connectivity ?? Connectivity() {
     _connectivity.onConnectivityChanged.listen((results) {
       _systemOnline = !results.contains(ConnectivityResult.none);
       _emit();

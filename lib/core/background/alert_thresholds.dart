@@ -41,8 +41,7 @@ class AlertThreshold {
   final int? activeAfterHour;
 
   bool isViolated(double value) {
-    if (activeAfterHour != null &&
-        DateTime.now().hour < activeAfterHour!) {
+    if (activeAfterHour != null && DateTime.now().hour < activeAfterHour!) {
       return false;
     }
     if (min != null && value < min!) return true;
@@ -62,21 +61,24 @@ abstract final class AlertThresholds {
       min: 50,
       max: 100,
       title: 'Heart Rate Alert',
-      body: 'Your resting heart rate is outside the normal range (50–100 bpm). '
+      body:
+          'Your resting heart rate is outside the normal range (50–100 bpm). '
           'Consider checking with a healthcare provider.',
     ),
     AlertThreshold(
       type: HealthMetricType.bloodOxygen,
       min: 95,
       title: 'Low Blood Oxygen',
-      body: 'Your blood oxygen level is below 95%. '
+      body:
+          'Your blood oxygen level is below 95%. '
           'If this persists, seek medical advice.',
     ),
     AlertThreshold(
       type: HealthMetricType.steps,
       min: 5000,
       title: 'Low Activity Today',
-      body: 'You have fewer than 5,000 steps today. '
+      body:
+          'You have fewer than 5,000 steps today. '
           'Try a short walk to stay active.',
       activeAfterHour: 20, // only alert after 8 PM
     ),
@@ -84,14 +86,16 @@ abstract final class AlertThresholds {
       type: HealthMetricType.sleep,
       min: 6,
       title: 'Low Sleep Detected',
-      body: 'You slept less than 6 hours last night. '
+      body:
+          'You slept less than 6 hours last night. '
           'Aim for 7–9 hours for optimal health.',
     ),
     AlertThreshold(
       type: HealthMetricType.activeEnergy,
       min: 200,
       title: 'Low Activity Energy',
-      body: 'You have burned fewer than 200 kcal of active energy today. '
+      body:
+          'You have burned fewer than 200 kcal of active energy today. '
           'Try to move more throughout the day.',
       activeAfterHour: 18, // only alert after 6 PM
     ),

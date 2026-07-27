@@ -27,9 +27,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         margin: EdgeInsets.zero,
       ),
       listTileTheme: const ListTileThemeData(

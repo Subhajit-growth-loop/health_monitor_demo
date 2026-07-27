@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/theme/neu_colors.dart';
+import '../../../../../core/theme/neu_typography.dart';
 import '../widgets/neu_dot_indicator.dart';
-import '../widgets/neu_image_placeholder.dart';
 import '../widgets/neu_logo.dart';
 import '../widgets/neu_primary_button.dart';
 import 'neu_welcome_screen.dart';
@@ -29,7 +29,9 @@ class _NeuFeatureScreensState extends State<NeuFeatureScreens> {
   void _next() {
     if (_page == 0) {
       _controller.nextPage(
-          duration: const Duration(milliseconds: 380), curve: Curves.easeInOut);
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeInOut,
+      );
     } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const NeuWelcomeScreen()),
@@ -44,37 +46,36 @@ class _NeuFeatureScreensState extends State<NeuFeatureScreens> {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: NeuColors.featureBackground,
+        systemNavigationBarColor: Colors.black,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: NeuColors.featureBackground,
+        backgroundColor: Colors.black,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // Background photo placeholder (replace with Image.asset later)
+            // Full-bleed background photo.
             Positioned.fill(
-              child: NeuImagePlaceholder(
-                icon: Icons.person_rounded,
-                backgroundColor: const Color(0xFF2A1A10),
-                iconColor: const Color(0xFF4A3020),
-                borderRadius: BorderRadius.zero,
+              child: Image.asset(
+                'assets/images/feature_sc_bg.png',
+                fit: BoxFit.cover,
               ),
             ),
-            // Dark gradient overlay
-            Container(
-              decoration: const BoxDecoration(
+            // Subtle scrim so the headline + bottom controls stay legible.
+            const DecoratedBox(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xAA1C1008),
-                    Color(0xCC1C1008),
-                    Color(0xFF1C1008),
+                    Color(0x33000000),
+                    Color(0x00000000),
+                    Color(0x66000000),
                   ],
-                  stops: [0.0, 0.5, 1.0],
+                  stops: [0.0, 0.45, 1.0],
                 ),
               ),
+              child: SizedBox.expand(),
             ),
             // Page content
             Column(
@@ -83,29 +84,27 @@ class _NeuFeatureScreensState extends State<NeuFeatureScreens> {
                   child: PageView(
                     controller: _controller,
                     onPageChanged: (i) => setState(() => _page = i),
-                    children: const [
-                      _FeaturePage1(),
-                      _FeaturePage2(),
-                    ],
+                    children: const [_FeaturePage1(), _FeaturePage2()],
                   ),
                 ),
                 SafeArea(
                   top: false,
                   child: Padding(
-                    padding:
-                        EdgeInsets.fromLTRB(24.w, 0, 24.w, 32.h),
+                    padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 28.h),
                     child: Column(
                       children: [
                         NeuDotIndicator(
                           count: 2,
                           currentIndex: _page,
-                          activeColor: Colors.white,
-                          dotSize: 7,
+                          activeColor: NeuColors.primary,
+                          inactiveColor: Colors.white.withValues(alpha: 0.35),
+                          dotSize: 8,
                         ),
-                        SizedBox(height: 20.h),
+                        SizedBox(height: 18.h),
                         NeuPrimaryButton(
                           label: _page == 0 ? 'Next' : 'Get Started',
                           onPressed: _next,
+                          height: 56,
                         ),
                       ],
                     ),
@@ -134,38 +133,42 @@ class _FeaturePage1 extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 16.h),
-            NeuLogo(size: 44.r, color: NeuColors.primary),
             const Spacer(),
+            NeuLogo(size: 64.r, color: NeuColors.primary),
+            SizedBox(height: 24.h),
             RichText(
               text: TextSpan(
-                style: TextStyle(
-                  fontSize: 34.sp,
-                  fontWeight: FontWeight.w800,
+                style: NeuTypography.serif(
+                  fontSize: 36.sp,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
-                  height: 1.2,
-                  letterSpacing: -0.5,
+                  height: 1.12,
                 ),
-                children: const [
-                  TextSpan(text: 'Your metabolic\nhealth, '),
+                children: [
+                  const TextSpan(text: 'Your metabolic\nhealth,\n'),
                   TextSpan(
-                    text: 'finally\nprecise.',
-                    style: TextStyle(color: NeuColors.primary),
+                    text: 'finally precise.',
+                    style: NeuTypography.serif(
+                      fontSize: 36.sp,
+                      fontWeight: FontWeight.w700,
+                      color: NeuColors.primary,
+                      height: 1.12,
+                    ),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 22.h),
             Text(
               'Personalized coaching for people managing MASLD — '
               'guided by your own data and Maya, your AI health coach.',
               style: TextStyle(
-                fontSize: 15.sp,
-                color: Colors.white.withValues(alpha: 0.72),
-                height: 1.6,
+                fontSize: 15.5.sp,
+                color: Colors.white.withValues(alpha: 0.78),
+                height: 1.55,
               ),
             ),
-            SizedBox(height: 80.h),
+            SizedBox(height: 160.h),
           ],
         ),
       ),
@@ -187,57 +190,60 @@ class _FeaturePage2 extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 16.h),
+            SizedBox(height: 48.h),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
+                color: NeuColors.accentYellow,
+                borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
                 'HOW NEU WORKS',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
+                  color: NeuColors.olive,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
                 ),
               ),
             ),
-            const Spacer(),
+            SizedBox(height: 24.h),
             Text(
-              'Small, followable\nsteps – built\naround you.',
-              style: TextStyle(
-                fontSize: 32.sp,
-                fontWeight: FontWeight.w800,
+              'Small, followable steps\n– built around you.',
+              style: NeuTypography.serif(
+                fontSize: 30.sp,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
-                height: 1.2,
-                letterSpacing: -0.5,
+                height: 1.18,
               ),
             ),
-            SizedBox(height: 32.h),
+            SizedBox(height: 36.h),
             _FeatureItem(
-              icon: Icons.water_drop_rounded,
+              icon: Icon(
+                Icons.water_drop_outlined,
+                color: NeuColors.primary,
+                size: 24,
+              ),
               title: 'Your data, understood',
-              subtitle:
-                  'Glucose, movement and sleep sync automatically.',
+              subtitle: 'Glucose, movement and sleep sync automatically.',
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 22.h),
             _FeatureItem(
-              icon: Icons.self_improvement_rounded,
+              icon: NeuLogo(size: 26.r, color: NeuColors.primary),
               title: 'Guided by Maya',
-              subtitle:
-                  'A warm AI coach who adapts to what your body shows.',
+              subtitle: 'A warm AI coach who adapts to what your body shows.',
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 22.h),
             _FeatureItem(
-              icon: Icons.track_changes_rounded,
+              icon: Icon(
+                Icons.task_alt_rounded,
+                color: NeuColors.primary,
+                size: 24,
+              ),
               title: 'Progress that lasts',
-              subtitle:
-                  'Short treatment cycles you can actually keep up with.',
+              subtitle: 'Short treatment cycles you can actually keep up with.',
             ),
-            SizedBox(height: 80.h),
+            SizedBox(height: 60.h),
           ],
         ),
       ),
@@ -252,7 +258,7 @@ class _FeatureItem extends StatelessWidget {
     required this.subtitle,
   });
 
-  final IconData icon;
+  final Widget icon;
   final String title;
   final String subtitle;
 
@@ -262,13 +268,14 @@ class _FeatureItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: NeuColors.primary.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.white.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: NeuColors.primary, size: 22),
+          child: icon,
         ),
         SizedBox(width: 14.w),
         Expanded(
@@ -279,16 +286,16 @@ class _FeatureItem extends StatelessWidget {
                 title,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 3),
+              SizedBox(height: 4.h),
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
-                  fontSize: 13.sp,
+                  color: Colors.white.withValues(alpha: 0.68),
+                  fontSize: 13.5.sp,
                   height: 1.4,
                 ),
               ),

@@ -9,7 +9,7 @@ class NeuPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
-    this.height = 56.0,
+    this.height = 50.0,
   });
 
   final String label;
@@ -27,7 +27,10 @@ class NeuPrimaryButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: NeuColors.primary,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: NeuColors.primary.withValues(alpha: 0.6),
+          // Neutral, clearly-inactive look when disabled (rather than a faded
+          // orange that can read as a live button).
+          disabledBackgroundColor: NeuColors.inputBorder.withValues(alpha: 0.55),
+          disabledForegroundColor: NeuColors.textMuted,
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -39,12 +42,14 @@ class NeuPrimaryButton extends StatelessWidget {
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: Colors.white),
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
               )
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 17,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,
                 ),

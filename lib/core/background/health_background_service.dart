@@ -51,7 +51,9 @@ Future<HealthRepositoryImpl> _buildRepository() async {
   final local = HealthLocalDataSource(db);
 
   final canUseReal =
-      !kIsWeb && !kForceSimulatedHealth && (Platform.isIOS || Platform.isAndroid);
+      !kIsWeb &&
+      !kForceSimulatedHealth &&
+      (Platform.isIOS || Platform.isAndroid);
   final HealthPlatformDataSource platform = canUseReal
       ? RealHealthPlatformDataSource()
       : SimulatedHealthPlatformDataSource();
@@ -96,7 +98,10 @@ Future<void> _runBackgroundSync({required bool showProgress}) async {
   }
 
   if (showProgress) {
-    await NotificationService.completeSyncProgress(count: syncedCount, success: ok);
+    await NotificationService.completeSyncProgress(
+      count: syncedCount,
+      success: ok,
+    );
   }
 
   // If we were already past the 48h threshold and still couldn't sync, prompt

@@ -2,117 +2,156 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/theme/neu_colors.dart';
+import '../../../../../core/theme/neu_typography.dart';
 import '../widgets/neu_base_screen.dart';
-import '../widgets/neu_image_placeholder.dart';
+import '../widgets/neu_logo.dart';
+import '../widgets/neu_maya_bubble.dart';
 import '../widgets/neu_primary_button.dart';
 
-/// Base shell for all step-guided onboarding screens (Maya-led intake).
-///
-/// Each onboarding step widget should wrap its content inside this shell,
-/// passing [stepIndex], [totalSteps], [title], [body], and [onNext].
-/// The header, progress bar, and navigation buttons are handled here.
-class NeuOnboardingBaseScreen extends StatefulWidget {
-  const NeuOnboardingBaseScreen({
+/// Shared shell for every guided onboarding step, matching the Maya design:
+/// optional top-left back button, a full-width progress bar, the Maya coach
+/// row with a "STEP x / N" (or "COMPLETE") marker, a peach prompt bubble, a
+/// serif (Newsreader) heading, the step [body], and a single bottom CTA.
+class NeuOnboardingShell extends StatelessWidget {
+  const NeuOnboardingShell({
     super.key,
-    this.stepIndex = 0,
-    this.totalSteps = 12,
-    this.title = 'Verify your information',
-    this.nextLabel = 'Validate & continue',
-    this.onNext,
+    required this.progress,
+    required this.stepLabel,
+    this.heading,
+    required this.body,
+    required this.ctaLabel,
+    required this.onCta,
+    this.mayaPrompt,
+    this.showBack = false,
     this.onBack,
-    this.child,
+    this.ctaLoading = false,
+    this.ctaEnabled = true,
+    this.backgroundImage,
   });
 
-  final int stepIndex;
-  final int totalSteps;
-  final String title;
-  final String nextLabel;
-  final VoidCallback? onNext;
+  /// Optional background image asset (`.svg` or `.jpg`/`.png`) painted behind
+  /// the whole step. See [NeuBaseScreen.backgroundImage].
+  final String? backgroundImage;
+
+  /// 0..1 progress-bar fill.
+  final double progress;
+
+  /// Right-hand marker, e.g. "STEP 2 / 10" or "COMPLETE".
+  final String stepLabel;
+
+  /// Optional serif heading; omitted (null) when the step shows none.
+  final String? heading;
+  final Widget body;
+  final String ctaLabel;
+  final VoidCallback? onCta;
+  final String? mayaPrompt;
+  final bool showBack;
   final VoidCallback? onBack;
-  final Widget? child;
+  final bool ctaLoading;
+  final bool ctaEnabled;
 
-  @override
-  State<NeuOnboardingBaseScreen> createState() =>
-      _NeuOnboardingBaseScreenState();
-}
-
-class _NeuOnboardingBaseScreenState extends State<NeuOnboardingBaseScreen> {
   @override
   Widget build(BuildContext context) {
-    final progress =
-        (widget.stepIndex + 1) / widget.totalSteps;
-
     return NeuBaseScreen(
       backgroundColor: NeuColors.screenBackground,
+      backgroundImage: backgroundImage,
+      // Let the white CTA bar reach the physical bottom edge and tint the
+      // Android system nav bar to match.
+      bottomSafeArea: false,
+      navigationBarColor: Colors.white,
       child: Column(
         children: [
-          _Header(stepIndex: widget.stepIndex, totalSteps: widget.totalSteps),
-          // Progress bar
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: NeuColors.inputBorder,
-            color: NeuColors.primary,
-            minHeight: 3,
+          if (showBack)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(18.w, 2.h, 0, 10.h),
+                child: _BackButton(
+                  onTap: onBack ?? () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            )
+          else
+            SizedBox(height: 12.h),
+          // Full-width progress bar.
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18.w),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3.r),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: NeuColors.inputBorder,
+                color: NeuColors.primary,
+              ),
+            ),
           ),
+          SizedBox(height: 14.h),
+          _CoachRow(stepLabel: stepLabel),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+              padding: EdgeInsets.fromLTRB(18.w, 14.h, 18.w, 20.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w700,
-                      color: NeuColors.textDark,
+                  if (mayaPrompt != null) ...[
+                    NeuMayaBubble(mayaPrompt!),
+                    SizedBox(height: 18.h),
+                  ],
+                  if (heading != null) ...[
+                    Text(
+                      heading!,
+                      style: NeuTypography.serif(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w700,
+                        color: NeuColors.textDark,
+                        height: 1.15,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 20.h),
-                  widget.child ?? _PlaceholderContent(),
+                    SizedBox(height: 10.h),
+                  ],
+                  body,
                 ],
               ),
             ),
           ),
-          _BottomNav(
-            stepIndex: widget.stepIndex,
-            nextLabel: widget.nextLabel,
-            onNext: widget.onNext ?? _defaultNext,
-            onBack: widget.onBack,
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: EdgeInsets.fromLTRB(
+              18.w,
+              10.h,
+              18.w,
+              // Own bottom padding since bottomSafeArea is off, so the white
+              // fill extends through the home-indicator inset.
+              16.h + MediaQuery.of(context).padding.bottom,
+            ),
+            child: NeuPrimaryButton(
+              label: ctaLabel,
+              onPressed: ctaEnabled ? onCta : null,
+              isLoading: ctaLoading,
+            ),
           ),
         ],
       ),
     );
   }
-
-  void _defaultNext() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Onboarding steps coming soon!')),
-    );
-  }
 }
 
-// ── Header ───────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  const _Header({required this.stepIndex, required this.totalSteps});
-
-  final int stepIndex;
-  final int totalSteps;
+class _CoachRow extends StatelessWidget {
+  const _CoachRow({required this.stepLabel});
+  final String stepLabel;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 18.w),
       child: Row(
         children: [
-          NeuImagePlaceholder(
-            width: 40.r,
-            height: 40.r,
-            icon: Icons.person_rounded,
-            backgroundColor: NeuColors.primary.withValues(alpha: 0.12),
-            iconColor: NeuColors.primary,
-            borderRadius: BorderRadius.circular(20.r),
+          NeuLogo(
+            size: 38.r,
+            color: NeuColors.primary,
+            asset: 'assets/icons/logo_primary.png',
           ),
           SizedBox(width: 10.w),
           Expanded(
@@ -122,7 +161,7 @@ class _Header extends StatelessWidget {
                 Text(
                   'Maya',
                   style: TextStyle(
-                    fontSize: 14.sp,
+                    fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
                     color: NeuColors.textDark,
                   ),
@@ -130,28 +169,20 @@ class _Header extends StatelessWidget {
                 Text(
                   'Your health coach',
                   style: TextStyle(
-                    fontSize: 12.sp,
+                    fontSize: 12.5.sp,
                     color: NeuColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: NeuColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'STEP ${stepIndex + 1} / $totalSteps',
-              style: TextStyle(
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w700,
-                color: NeuColors.primary,
-                letterSpacing: 0.5,
-              ),
+          Text(
+            stepLabel,
+            style: TextStyle(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w700,
+              color: NeuColors.textSecondary,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -160,138 +191,27 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Bottom navigation ─────────────────────────────────────────────────────────
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({
-    required this.stepIndex,
-    required this.nextLabel,
-    required this.onNext,
-    this.onBack,
-  });
-
-  final int stepIndex;
-  final String nextLabel;
-  final VoidCallback onNext;
-  final VoidCallback? onBack;
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 24.h),
-      decoration: BoxDecoration(
-        color: NeuColors.screenBackground,
-        border: Border(
-          top: BorderSide(color: NeuColors.inputBorder, width: 1),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42.w,
+        height: 34.h,
+        decoration: BoxDecoration(
+          color: NeuColors.screenBackground,
+          borderRadius: BorderRadius.circular(11.r),
+          border: Border.all(color: NeuColors.inputBorder),
         ),
-      ),
-      child: stepIndex == 0
-          ? NeuPrimaryButton(label: nextLabel, onPressed: onNext)
-          : Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: NeuColors.textDark,
-                      side: const BorderSide(color: NeuColors.inputBorder),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onNext,
-                    icon: const Text('Next'),
-                    label: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: NeuColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-}
-
-// ── Placeholder content ───────────────────────────────────────────────────────
-
-class _PlaceholderContent extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _InfoRow(label: 'Full Name', value: 'William Harry'),
-        _InfoRow(label: 'Date of birth', value: '14 March, 1974'),
-        _InfoRow(label: 'Gender', value: 'Female'),
-        _InfoRow(label: 'Primary diagnosis', value: 'MASLD'),
-        _InfoRow(label: 'Diagnosed', value: 'Jan, 2025'),
-        _InfoRow(label: 'Other conditions', value: 'Metformin 500mg'),
-        _InfoRow(label: 'Current medications', value: '—'),
-      ],
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: NeuColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: NeuColors.textDark,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () {},
-            child: const Text(
-              'Change',
-              style: TextStyle(
-                fontSize: 13,
-                color: NeuColors.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
+        child: const Icon(
+          Icons.chevron_left_rounded,
+          color: NeuColors.textDark,
+          size: 22,
+        ),
       ),
     );
   }

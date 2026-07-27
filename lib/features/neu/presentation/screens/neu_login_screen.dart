@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
+import '../../../../../core/theme/neu_typography.dart';
+import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 import '../../../health/presentation/screens/dashboard_screen.dart';
 import '../widgets/neu_base_screen.dart';
 import '../widgets/neu_logo.dart';
@@ -59,21 +61,34 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
     if (!_validate()) return;
 
     setState(() => _isLoading = true);
-    // Simulate network call — replace with real API
-    await Future.delayed(const Duration(milliseconds: 1000));
-    if (!mounted) return;
+    try {
+      final auth = await ref
+          .read(onboardingRepositoryProvider)
+          .login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
 
-    // Mock: store credentials and navigate to dashboard
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setString('neu_email', _emailController.text.trim());
-    await prefs.setString('neu_token', 'mock_token_${DateTime.now().millisecondsSinceEpoch}');
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setString('neu_email', _emailController.text.trim());
+      await prefs.setString('neu_token', auth.token);
+      await prefs.setString('neu_gender', auth.gender ?? '');
+      // A returning user has already onboarded.
+      await prefs.setBool('neu_onboarding_complete', true);
 
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardScreen()),
-    );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _forgotPassword() {
@@ -94,26 +109,25 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
           children: [
             SizedBox(height: 32.h),
             Center(
-              child: NeuLogo(size: 72.r, color: NeuColors.primary),
+              child: NeuLogo(size: 60.r, color: NeuColors.primary),
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 10.h),
             Center(
               child: Text(
                 'Neu Health',
-                style: TextStyle(
-                  fontSize: 26.sp,
-                  fontWeight: FontWeight.w800,
+                style: NeuTypography.serif(
+                  fontSize: 40.sp,
+                  fontWeight: FontWeight.w700,
                   color: NeuColors.textDark,
-                  letterSpacing: -0.3,
                 ),
               ),
             ),
-            SizedBox(height: 36.h),
+            SizedBox(height: 30.h),
             Text(
               'Welcome Back!',
-              style: TextStyle(
-                fontSize: 28.sp,
-                fontWeight: FontWeight.w800,
+              style: NeuTypography.serif(
+                fontSize: 26.sp,
+                fontWeight: FontWeight.w700,
                 color: NeuColors.textDark,
                 letterSpacing: -0.4,
               ),

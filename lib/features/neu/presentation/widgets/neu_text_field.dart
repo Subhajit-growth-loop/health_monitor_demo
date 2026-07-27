@@ -37,6 +37,8 @@ class NeuTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasError = errorText != null && errorText!.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -45,12 +47,12 @@ class NeuTextField extends StatelessWidget {
           Text(
             label!,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: NeuColors.textDark,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
         ],
         TextField(
           controller: controller,
@@ -62,7 +64,7 @@ class NeuTextField extends StatelessWidget {
           focusNode: focusNode,
           autofillHints: autofillHints,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w500,
             color: NeuColors.textDark,
           ),
@@ -70,42 +72,58 @@ class NeuTextField extends StatelessWidget {
             hintText: hint,
             hintStyle: const TextStyle(
               color: NeuColors.textMuted,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
-            errorText: errorText,
             filled: true,
             fillColor: NeuColors.inputFill,
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 18),
+              horizontal: 16,
+              vertical: 15,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: NeuColors.inputBorder),
+              borderSide: const BorderSide(color: NeuColors.inputBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: NeuColors.inputBorder),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : NeuColors.inputBorder,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: NeuColors.primary, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.red),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: Colors.red, width: 1.5),
+              borderSide: BorderSide(
+                color: hasError ? Colors.red : NeuColors.primary,
+                width: 1.5,
+              ),
             ),
           ),
         ),
+        // Error line rendered flush-left under the field (with a leading icon),
+        // instead of the indented Material error subtext.
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.red,
+                size: 15,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

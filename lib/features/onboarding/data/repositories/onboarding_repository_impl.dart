@@ -1,0 +1,53 @@
+import '../../domain/entities/onboarding_draft.dart';
+import '../../domain/entities/onboarding_results.dart';
+import '../../domain/entities/user_profile.dart';
+import '../../domain/repositories/onboarding_repository.dart';
+import '../datasources/remote/onboarding_api.dart';
+
+/// REST-backed implementation of [OnboardingRepository]. Maps the API's JSON
+/// maps onto domain entities.
+class OnboardingRepositoryImpl implements OnboardingRepository {
+  OnboardingRepositoryImpl(this._api);
+
+  final OnboardingApi _api;
+
+  @override
+  Future<ReferralResult> verifyReferral(String code) async =>
+      ReferralResult.fromJson(await _api.verifyReferral(code));
+
+  @override
+  Future<AuthResult> signup({
+    required String email,
+    required String password,
+    String? referralCode,
+  }) async => AuthResult.fromJson(
+    await _api.signup(
+      email: email,
+      password: password,
+      referralCode: referralCode,
+    ),
+  );
+
+  @override
+  Future<AuthResult> login({
+    required String email,
+    required String password,
+  }) async =>
+      AuthResult.fromJson(await _api.login(email: email, password: password));
+
+  @override
+  Future<OnboardingSnapshot> loadOnboarding() async =>
+      OnboardingSnapshot.fromJson(await _api.getOnboarding());
+
+  @override
+  Future<UserProfile> updateProfile(Map<String, dynamic> changes) async =>
+      UserProfile.fromJson(await _api.patchProfile(changes));
+
+  @override
+  Future<OnboardingDraft> saveStep(Map<String, dynamic> answers) async =>
+      OnboardingDraft.fromJson(await _api.patchOnboarding(answers));
+
+  @override
+  Future<CompletionResult> complete() async =>
+      CompletionResult.fromJson(await _api.complete());
+}

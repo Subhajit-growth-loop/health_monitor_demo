@@ -20,11 +20,11 @@ class Fmt {
 
   /// Maps the 0–3 menstruation intensity onto its human-readable flow level.
   static String menstruationFlowLabel(double value) => switch (value.round()) {
-        >= 3 => 'Heavy',
-        2 => 'Medium',
-        1 => 'Light',
-        _ => 'None',
-      };
+    >= 3 => 'Heavy',
+    2 => 'Medium',
+    1 => 'Light',
+    _ => 'None',
+  };
 
   /// Compact label for Y-axis ticks: no locale separators, "k" suffix for
   /// values ≥ 1000, respects the type's decimal precision otherwise.
