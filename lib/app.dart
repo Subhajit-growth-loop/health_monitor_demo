@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/health/presentation/screens/splash_screen.dart';
+import 'features/neu/presentation/screens/neu_splash_screen.dart';
 
 class HealthMonitorApp extends StatelessWidget {
   const HealthMonitorApp({super.key});
@@ -28,7 +28,7 @@ class HealthMonitorApp extends StatelessWidget {
         themeMode: ThemeMode.system,
         home: child,
       ),
-      child: const SplashScreen(),
+      child: const NeuSplashScreen(),
     );
   }
 }
