@@ -130,6 +130,7 @@ class _NeuCreatePasswordScreenState
   Widget build(BuildContext context) {
     return NeuBaseScreen(
       backgroundColor: NeuColors.screenBackground,
+      backgroundImage: 'assets/images/auth_sc_bg.png',
       resizeToAvoidBottomInset: true,
       child: Column(
         children: [

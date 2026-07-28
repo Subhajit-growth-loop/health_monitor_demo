@@ -101,6 +101,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
   Widget build(BuildContext context) {
     return NeuBaseScreen(
       backgroundColor: NeuColors.screenBackground,
+      backgroundImage: 'assets/images/auth_sc_bg.png',
       resizeToAvoidBottomInset: true,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 24.w),

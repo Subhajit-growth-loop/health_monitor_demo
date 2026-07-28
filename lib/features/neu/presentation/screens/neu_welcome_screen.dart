@@ -97,6 +97,7 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
   Widget build(BuildContext context) {
     return NeuBaseScreen(
       backgroundColor: NeuColors.screenBackground,
+      backgroundImage: 'assets/images/auth_sc_bg.png',
       child: Column(
         children: [
           Expanded(
