@@ -39,6 +39,12 @@ class Feeling {
   );
 }
 
+// Sentinel to distinguish "not provided" from "explicitly null" in copyWith.
+class _Absent {
+  const _Absent();
+}
+const _absent = _Absent();
+
 /// All of the user's onboarding answers. Persisted to the API after every step
 /// so navigating back re-hydrates exactly what was saved.
 class OnboardingDraft {
@@ -140,7 +146,8 @@ class OnboardingDraft {
     List<String>? symptoms,
     Feeling? feeling,
     String? note,
-    String? connectChoice,
+    // Uses Object? + sentinel so passing null explicitly clears the field.
+    Object? connectChoice = _absent,
     List<String>? connectedSources,
     String? firstAction,
   }) => OnboardingDraft(
@@ -154,7 +161,7 @@ class OnboardingDraft {
     symptoms: symptoms ?? this.symptoms,
     feeling: feeling ?? this.feeling,
     note: note ?? this.note,
-    connectChoice: connectChoice ?? this.connectChoice,
+    connectChoice: connectChoice is _Absent ? this.connectChoice : connectChoice as String?,
     connectedSources: connectedSources ?? this.connectedSources,
     firstAction: firstAction ?? this.firstAction,
   );

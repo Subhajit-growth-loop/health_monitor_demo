@@ -148,12 +148,41 @@ final onboardingControllerProvider =
 
 // ── Connected-source detection (device step) ─────────────────────────────────
 
+/// Maps raw platform health-data type strings to the display category key
+/// used in the connect step UI ('vitals', 'activity', 'wellness').
+const _kSourceTypeToCategory = <String, String>{
+  'BLOOD_GLUCOSE': 'vitals',
+  'HEART_RATE': 'vitals',
+  'RESTING_HEART_RATE': 'vitals',
+  'HEART_RATE_VARIABILITY_SDNN': 'vitals',
+  'HEART_RATE_VARIABILITY_RMSSD': 'vitals',
+  'BLOOD_OXYGEN': 'vitals',
+  'RESPIRATORY_RATE': 'vitals',
+  'BLOOD_PRESSURE_SYSTOLIC': 'vitals',
+  'BLOOD_PRESSURE_DIASTOLIC': 'vitals',
+  'BODY_TEMPERATURE': 'vitals',
+  'STEPS': 'activity',
+  'ACTIVE_ENERGY_BURNED': 'activity',
+  'BASAL_ENERGY_BURNED': 'activity',
+  'TOTAL_CALORIES_BURNED': 'activity',
+  'FLIGHTS_CLIMBED': 'activity',
+  'WEIGHT': 'wellness',
+  'HEIGHT': 'wellness',
+  'BODY_FAT_PERCENTAGE': 'wellness',
+  'LEAN_BODY_MASS': 'wellness',
+  'SLEEP_ASLEEP': 'wellness',
+  'SLEEP_SESSION': 'wellness',
+  'SLEEP_DEEP': 'wellness',
+  'SLEEP_LIGHT': 'wellness',
+  'SLEEP_REM': 'wellness',
+  'SLEEP_AWAKE': 'wellness',
+  'MENSTRUATION_FLOW': 'wellness',
+};
+
 /// Requests Health Connect / HealthKit permission (shows the OS dialog), reads
-/// recent samples, and surfaces the distinct source app/device names. An empty
-/// result means no connected source was found (prompt the user to set up later).
-///
-/// State is `null` before detection has run, `AsyncLoading` during, and an
-/// `AsyncData(list)` after (possibly empty).
+/// recent samples, and surfaces distinct source app/device names grouped by
+/// display category. State is `null` before detection, `AsyncLoading` during,
+/// and `AsyncData(list)` after (possibly empty).
 class ConnectedSourcesController extends AsyncNotifier<List<HealthSource>?> {
   @override
   Future<List<HealthSource>?> build() async => null;
@@ -162,7 +191,6 @@ class ConnectedSourcesController extends AsyncNotifier<List<HealthSource>?> {
     state = const AsyncLoading();
     try {
       final repo = ref.read(healthRepositoryProvider);
-      // Shows the platform permission dialog.
       await repo.requestPermissions(HealthMetricType.collectible);
 
       final raw = await repo.exportRawPlatformJson(
@@ -174,16 +202,31 @@ class ConnectedSourcesController extends AsyncNotifier<List<HealthSource>?> {
           .providerName
           .toLowerCase();
 
-      final names = <String>{};
+      // Build per-source category → raw-type-strings mapping.
+      final sourceData = <String, Map<String, Set<String>>>{};
       for (final m in raw) {
         final s = m['sourceName'];
+        final t = m['type'];
         if (s is String &&
             s.trim().isNotEmpty &&
             s.trim().toLowerCase() != providerName) {
-          names.add(s.trim());
+          final name = s.trim();
+          sourceData.putIfAbsent(name, () => {});
+          if (t is String && t.trim().isNotEmpty) {
+            final rawType = t.trim();
+            final cat = _kSourceTypeToCategory[rawType];
+            if (cat != null) {
+              sourceData[name]!.putIfAbsent(cat, () => {});
+              sourceData[name]![cat]!.add(rawType);
+            }
+          }
         }
       }
-      state = AsyncData(names.map(HealthSource.new).toList());
+
+      final sources = sourceData.entries
+          .map((e) => HealthSource(e.key, rawTypesByCategory: e.value))
+          .toList();
+      state = AsyncData(sources);
     } catch (e, st) {
       state = AsyncError(e, st);
     }
