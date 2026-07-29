@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/neu_colors.dart';
 
 /// Labelled text field styled for the Neu brand.
+///
+/// Set [dark] to `true` on dark-background screens (auth, onboarding).
 class NeuTextField extends StatelessWidget {
   const NeuTextField({
     super.key,
@@ -19,6 +21,7 @@ class NeuTextField extends StatelessWidget {
     this.focusNode,
     this.autofillHints,
     this.errorText,
+    this.dark = false,
   });
 
   final TextEditingController controller;
@@ -35,9 +38,21 @@ class NeuTextField extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final String? errorText;
 
+  /// When true, uses dark-theme colors (dark surface fill, white text, etc.).
+  final bool dark;
+
   @override
   Widget build(BuildContext context) {
     final hasError = errorText != null && errorText!.isNotEmpty;
+
+    final labelColor = dark
+        ? Colors.white.withValues(alpha: 0.87)
+        : NeuColors.textDark;
+    final inputTextColor = dark ? Colors.white : NeuColors.textDark;
+    final hintColor = dark ? NeuColors.darkTextMuted : NeuColors.textMuted;
+    final fillColor = dark ? NeuColors.darkCard : NeuColors.inputFill;
+    final borderColor = dark ? NeuColors.darkBorder : NeuColors.inputBorder;
+    const focusedBorderColor = NeuColors.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,10 +61,10 @@ class NeuTextField extends StatelessWidget {
         if (label != null) ...[
           Text(
             label!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: NeuColors.textDark,
+              color: labelColor,
             ),
           ),
           const SizedBox(height: 7),
@@ -63,40 +78,40 @@ class NeuTextField extends StatelessWidget {
           onSubmitted: onSubmitted,
           focusNode: focusNode,
           autofillHints: autofillHints,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: NeuColors.textDark,
+            color: inputTextColor,
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(
-              color: NeuColors.textMuted,
+            hintStyle: TextStyle(
+              color: hintColor,
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: NeuColors.inputFill,
+            fillColor: fillColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 15,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: NeuColors.inputBorder),
+              borderSide: BorderSide(color: borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide(
-                color: hasError ? Colors.red : NeuColors.inputBorder,
+                color: hasError ? Colors.red : borderColor,
               ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide(
-                color: hasError ? Colors.red : NeuColors.primary,
+                color: hasError ? Colors.red : focusedBorderColor,
                 width: 1.5,
               ),
             ),

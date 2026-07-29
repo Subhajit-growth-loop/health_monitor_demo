@@ -152,7 +152,7 @@ class _NeuOnboardingFlowScreenState
         child: Text(
           'Could not load onboarding.\n$e',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: NeuColors.textSecondary),
+          style: const TextStyle(color: NeuColors.darkTextMuted),
         ),
       ),
       data: _buildStep,
@@ -361,9 +361,9 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.inputBorder),
+        border: Border.all(color: NeuColors.darkBorder),
       ),
       child: Column(
         children: [
@@ -371,7 +371,7 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
             if (i > 0)
               Divider(
                 height: 1,
-                color: NeuColors.inputBorder.withValues(alpha: 0.6),
+                color: NeuColors.darkBorder.withValues(alpha: 0.6),
               ),
             _InfoRow(
               label: rows[i].label,
@@ -420,7 +420,7 @@ class _InfoRow extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 12.5.sp,
-                    color: NeuColors.textSecondary,
+                    color: NeuColors.darkTextMuted,
                   ),
                 ),
                 SizedBox(height: 4.h),
@@ -431,7 +431,7 @@ class _InfoRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15.5.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.textDark,
+                      color: Colors.white,
                     ),
                     decoration: const InputDecoration(
                       isDense: true,
@@ -445,7 +445,7 @@ class _InfoRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15.5.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.textDark,
+                      color: Colors.white,
                     ),
                   ),
               ],
@@ -495,6 +495,7 @@ class _MotivationStep extends StatelessWidget {
           style: NeuTypography.serif(
             fontSize: 18.sp,
             fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
         SizedBox(height: 16.h),
@@ -770,9 +771,9 @@ class _NoteStepState extends ConsumerState<_NoteStep> {
     return Container(
       height: 380.h,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.inputBorder),
+        border: Border.all(color: NeuColors.darkBorder),
       ),
       child: Column(
         children: [
@@ -809,7 +810,7 @@ class _NoteStepState extends ConsumerState<_NoteStep> {
           ),
           Divider(
             height: 1,
-            color: NeuColors.inputBorder.withValues(alpha: 0.6),
+            color: NeuColors.darkBorder,
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(12.w, 8.h, 8.w, 8.h),
@@ -820,8 +821,10 @@ class _NoteStepState extends ConsumerState<_NoteStep> {
                     controller: _controller,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
                       hintText: 'Type a message…',
+                      hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -829,7 +832,7 @@ class _NoteStepState extends ConsumerState<_NoteStep> {
                 ),
                 Icon(
                   Icons.mic_none_rounded,
-                  color: NeuColors.textMuted,
+                  color: NeuColors.darkTextMuted,
                   size: 22,
                 ),
                 SizedBox(width: 8.w),
@@ -971,8 +974,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
           child: Text(
             'You can connect additional sources from Settings at any time.',
             textAlign: TextAlign.center,
-            style:
-                TextStyle(fontSize: 13.sp, color: NeuColors.textSecondary),
+            style: TextStyle(fontSize: 13.sp, color: NeuColors.darkTextMuted),
           ),
         ),
       ],
@@ -1024,7 +1026,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w700,
-                color: NeuColors.textDark,
+                color: Colors.white,
               ),
             ),
             if (typeLabels.isNotEmpty) ...[
@@ -1034,7 +1036,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
                   '(${typeLabels.join(', ')})',
                   style: TextStyle(
                     fontSize: 12.5.sp,
-                    color: NeuColors.textSecondary,
+                    color: NeuColors.darkTextMuted,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1047,15 +1049,18 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
             decoration: BoxDecoration(
-              color: NeuColors.accentYellow,
+              color: NeuColors.darkCard,
               borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(
+                color: NeuColors.primary.withValues(alpha: 0.4),
+              ),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.warning_amber_rounded,
                   size: 16,
-                  color: NeuColors.olive,
+                  color: NeuColors.primary,
                 ),
                 SizedBox(width: 8.w),
                 Expanded(
@@ -1065,7 +1070,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
                         : 'Select a source to connect your $label data',
                     style: TextStyle(
                       fontSize: 12.5.sp,
-                      color: NeuColors.olive,
+                      color: NeuColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1113,7 +1118,7 @@ class _DetectingRow extends StatelessWidget {
         SizedBox(width: 12.w),
         Text(
           'Checking your connected apps…',
-          style: TextStyle(fontSize: 15.sp, color: NeuColors.textSecondary),
+          style: TextStyle(fontSize: 15.sp, color: Colors.white60),
         ),
       ],
     );
@@ -1129,7 +1134,7 @@ class _ConnectMessage extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
-        color: NeuColors.accentYellow,
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(14.r),
       ),
       child: Row(
@@ -1137,7 +1142,7 @@ class _ConnectMessage extends StatelessWidget {
         children: [
           const Icon(
             Icons.info_outline_rounded,
-            color: NeuColors.olive,
+            color: NeuColors.primary,
             size: 20,
           ),
           SizedBox(width: 12.w),
@@ -1146,7 +1151,7 @@ class _ConnectMessage extends StatelessWidget {
               text,
               style: TextStyle(
                 fontSize: 14.sp,
-                color: NeuColors.olive,
+                color: NeuColors.primary,
                 height: 1.4,
               ),
             ),
@@ -1166,7 +1171,7 @@ class _NoSourceMessage extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
-        color: NeuColors.inputBorder.withValues(alpha: 0.25),
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
@@ -1175,7 +1180,7 @@ class _NoSourceMessage extends StatelessWidget {
           const Icon(
             Icons.info_outline_rounded,
             size: 18,
-            color: NeuColors.textSecondary,
+            color: NeuColors.darkTextMuted,
           ),
           SizedBox(width: 10.w),
           Expanded(
@@ -1184,7 +1189,7 @@ class _NoSourceMessage extends StatelessWidget {
               'from Settings later.',
               style: TextStyle(
                 fontSize: 13.sp,
-                color: NeuColors.textSecondary,
+                color: NeuColors.darkTextMuted,
                 height: 1.4,
               ),
             ),
@@ -1223,16 +1228,16 @@ class _LetterStep extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.inputBorder),
+        border: Border.all(color: NeuColors.darkBorder),
       ),
       child: Text(
         _letter,
         style: TextStyle(
           fontSize: 14.5.sp,
           height: 1.5,
-          color: NeuColors.textDark,
+          color: Colors.white.withValues(alpha: 0.9),
         ),
       ),
     );
@@ -1294,16 +1299,16 @@ class NeuOnboardingCompleteScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 15.sp,
               height: 1.5,
-              color: NeuColors.textDark,
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           SizedBox(height: 20.h),
           Container(
             padding: EdgeInsets.all(18.r),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: NeuColors.darkCard,
               borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: NeuColors.inputBorder),
+              border: Border.all(color: NeuColors.darkBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1313,7 +1318,7 @@ class NeuOnboardingCompleteScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 12.5.sp,
                     fontWeight: FontWeight.w700,
-                    color: NeuColors.olive,
+                    color: NeuColors.primary,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -1346,7 +1351,7 @@ class _NextRow extends StatelessWidget {
           height: 28.r,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: NeuColors.primary.withValues(alpha: 0.12),
+            color: NeuColors.primary.withValues(alpha: 0.20),
             shape: BoxShape.circle,
           ),
           child: Text(
@@ -1354,7 +1359,7 @@ class _NextRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.sp,
               fontWeight: FontWeight.w700,
-              color: NeuColors.primaryDark,
+              color: NeuColors.primary,
             ),
           ),
         ),
@@ -1367,7 +1372,7 @@ class _NextRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15.sp,
                 height: 1.4,
-                color: NeuColors.textDark,
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -1392,6 +1397,7 @@ class _SectionLabel extends StatelessWidget {
         style: NeuTypography.serif(
           fontSize: 17.sp,
           fontWeight: FontWeight.w700,
+          color: Colors.white,
         ),
       ),
     );
@@ -1405,7 +1411,8 @@ class _CenteredMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NeuBaseScreen(
-      backgroundColor: NeuColors.screenBackground,
+      backgroundColor: NeuColors.darkBackground,
+      lightStatusIcons: true,
       child: Padding(
         padding: EdgeInsets.all(32.r),
         child: Center(child: child),

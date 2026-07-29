@@ -129,8 +129,10 @@ class _NeuCreatePasswordScreenState
   @override
   Widget build(BuildContext context) {
     return NeuBaseScreen(
-      backgroundColor: NeuColors.screenBackground,
-      backgroundImage: 'assets/images/auth_sc_bg.png',
+      backgroundColor: NeuColors.darkBackground,
+      backgroundImage: 'assets/images/auth_sc_dark_bg.png',
+      lightStatusIcons: true,
+      navigationBarColor: NeuColors.darkBackground,
       resizeToAvoidBottomInset: true,
       child: Column(
         children: [
@@ -148,7 +150,7 @@ class _NeuCreatePasswordScreenState
                     style: NeuTypography.serif(
                       fontSize: 27.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.textDark,
+                      color: NeuColors.primary,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -158,7 +160,7 @@ class _NeuCreatePasswordScreenState
                     'your Neu Health account.',
                     style: TextStyle(
                       fontSize: 14.sp,
-                      color: NeuColors.textSecondary,
+                      color: Colors.white60,
                       height: 1.5,
                     ),
                   ),
@@ -171,10 +173,11 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.email],
                     errorText: _emailError,
+                    dark: true,
                     onChanged: (_) => setState(() => _emailError = null),
                     prefixIcon: const Icon(
                       Icons.mail_outline_rounded,
-                      color: NeuColors.textMuted,
+                      color: NeuColors.darkTextMuted,
                       size: 20,
                     ),
                   ),
@@ -187,10 +190,11 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.newPassword],
                     errorText: _passwordError,
+                    dark: true,
                     onChanged: (_) => setState(() => _passwordError = null),
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
-                      color: NeuColors.textMuted,
+                      color: NeuColors.darkTextMuted,
                       size: 20,
                     ),
                     suffixIcon: IconButton(
@@ -198,7 +202,7 @@ class _NeuCreatePasswordScreenState
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: NeuColors.textMuted,
+                        color: NeuColors.darkTextMuted,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -214,11 +218,12 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.done,
                     autofillHints: const [AutofillHints.newPassword],
                     errorText: _confirmError,
+                    dark: true,
                     onChanged: (_) => setState(() => _confirmError = null),
                     onSubmitted: (_) => _startOnboarding(),
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
-                      color: NeuColors.textMuted,
+                      color: NeuColors.darkTextMuted,
                       size: 20,
                     ),
                     suffixIcon: IconButton(
@@ -226,7 +231,7 @@ class _NeuCreatePasswordScreenState
                         _obscureConfirm
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: NeuColors.textMuted,
+                        color: NeuColors.darkTextMuted,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -256,7 +261,7 @@ class _NeuCreatePasswordScreenState
                     text: TextSpan(
                       style: TextStyle(
                         fontSize: 14.sp,
-                        color: NeuColors.textSecondary,
+                        color: Colors.white60,
                       ),
                       children: const [
                         TextSpan(text: 'Already have an account? '),
@@ -293,13 +298,13 @@ class _BackButton extends StatelessWidget {
         width: 44.r,
         height: 44.r,
         decoration: BoxDecoration(
-          color: NeuColors.screenBackground,
+          color: NeuColors.darkCard,
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: NeuColors.inputBorder),
+          border: Border.all(color: NeuColors.darkBorder),
         ),
         child: const Icon(
           Icons.chevron_left_rounded,
-          color: NeuColors.textDark,
+          color: Colors.white,
           size: 26,
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/daily_point.dart';
@@ -43,4 +45,33 @@ final recordsForTypeProvider =
         (ref, type) async {
   ref.watch(healthChangesProvider);
   return ref.watch(healthRepositoryProvider).recordsForType(type);
+});
+
+/// Weekly aggregates: groups [weeks] × 7 daily points into one value per week.
+/// The representative date for each week is the first day of that 7-day bucket.
+final weeklySeriesProvider = FutureProvider.family<List<DailyPoint>,
+    ({HealthMetricType type, int weeks})>((ref, arg) async {
+  ref.watch(healthChangesProvider);
+  final daily = await ref
+      .watch(healthRepositoryProvider)
+      .dailySeries(arg.type, days: arg.weeks * 7);
+
+  final result = <DailyPoint>[];
+  for (var w = 0; w < arg.weeks; w++) {
+    final from = w * 7;
+    if (from >= daily.length) break;
+    final to = math.min(from + 7, daily.length);
+    final slice = daily.sublist(from, to);
+    final nonZero = slice.where((p) => p.value > 0).toList();
+
+    double value = 0;
+    if (nonZero.isNotEmpty) {
+      final sum = nonZero.fold(0.0, (s, p) => s + p.value);
+      value = arg.type.aggregation == Aggregation.sum
+          ? sum
+          : sum / nonZero.length;
+    }
+    result.add(DailyPoint(day: slice.first.day, value: value));
+  }
+  return result;
 });

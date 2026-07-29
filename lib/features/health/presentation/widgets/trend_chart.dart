@@ -96,11 +96,15 @@ class _TrendChartState extends State<TrendChart> {
       _needsScroll ? 14.w : (widget.points.length <= 7 ? 16.w : 12.w);
 
   double get _labelInterval {
-    // When scrolling, every point gets ~32px of width — enough room to label
-    // each one, so show all x-axis labels (month, year, …).
-    if (_needsScroll) return 1;
-    if (widget.points.length <= 7) return 1;
-    if (widget.points.length <= 14) return 2;
+    final n = widget.points.length;
+    if (_needsScroll) {
+      // Show roughly 8 labels across the full scroll width regardless of length.
+      if (n > 30) return (n / 8).ceil().toDouble();
+      if (n > 14) return 2;
+      return 1;
+    }
+    if (n <= 7) return 1;
+    if (n <= 14) return 2;
     return 5;
   }
 
@@ -326,7 +330,7 @@ class _TrendChartState extends State<TrendChart> {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 14.h,
-            getTitlesWidget: (_, __) => const SizedBox.shrink(),
+            getTitlesWidget: (_, _) => const SizedBox.shrink(),
           ),
         ),
         rightTitles:
@@ -355,7 +359,7 @@ class _TrendChartState extends State<TrendChart> {
             reservedSize: _bottomReservedSize,
             getTitlesWidget: showBottomTitles
                 ? (v, _) => _bottomTitle(context, v)
-                : (_, __) => const SizedBox.shrink(),
+                : (_, _) => const SizedBox.shrink(),
           ),
         ),
       );
@@ -513,7 +517,7 @@ class _TrendChartState extends State<TrendChart> {
         : null;
     final lineBarsData = [
       primaryBar,
-      if (secondaryBar != null) secondaryBar,
+      ?secondaryBar,
     ];
 
     // Persistent tooltip: show indicator at the selected x index.

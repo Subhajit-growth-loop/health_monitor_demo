@@ -65,4 +65,11 @@ class Fmt {
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     return DateFormat.MMMd().format(dt);
   }
+
+  /// "Wk N" label where N = ISO week-of-year (1–52). Used on the weekly chart x-axis.
+  static String weekLabel(DateTime dt) {
+    final jan1 = DateTime(dt.year, 1, 1);
+    final w = ((dt.difference(jan1).inDays) / 7).floor() + 1;
+    return 'Wk$w';
+  }
 }

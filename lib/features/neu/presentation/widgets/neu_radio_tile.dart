@@ -33,7 +33,7 @@ class NeuRadioTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.sp,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? NeuColors.primaryDark : NeuColors.textSecondary,
+              color: selected ? Colors.white : Colors.white60,
             ),
           ),
         ),
@@ -56,10 +56,10 @@ class NeuRadioTile extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: NeuColors.darkCard,
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
-            color: selected ? NeuColors.primary : NeuColors.inputBorder,
+            color: selected ? NeuColors.primary : NeuColors.darkBorder,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -81,7 +81,7 @@ class _RadioRing extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? NeuColors.primary : NeuColors.inputBorder,
+          color: selected ? NeuColors.primary : NeuColors.darkBorder,
           width: 2,
         ),
       ),

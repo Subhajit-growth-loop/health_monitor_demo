@@ -40,7 +40,7 @@ class NeuSliderRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w700,
-                  color: NeuColors.textDark,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -49,10 +49,10 @@ class NeuSliderRow extends StatelessWidget {
               height: 36.h,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: NeuColors.darkCard,
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.all(Radius.circular(20.r)),
-                border: Border.all(color: NeuColors.inputBorder),
+                border: Border.all(color: NeuColors.darkBorder),
               ),
               child: Text(emoji, style: const TextStyle(fontSize: 18)),
             ),
@@ -62,7 +62,7 @@ class NeuSliderRow extends StatelessWidget {
           data: SliderThemeData(
             trackHeight: 6,
             activeTrackColor: NeuColors.primary,
-            inactiveTrackColor: NeuColors.accentYellow,
+            inactiveTrackColor: NeuColors.darkCard,
             thumbColor: Colors.white,
             overlayColor: NeuColors.primary.withValues(alpha: 0.12),
             thumbShape: const _NeuThumbShape(radius: 11, ringWidth: 2.5),
@@ -84,14 +84,14 @@ class NeuSliderRow extends StatelessWidget {
                 minLabel,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: NeuColors.textSecondary,
+                  color: NeuColors.darkTextMuted,
                 ),
               ),
               Text(
                 maxLabel,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: NeuColors.textSecondary,
+                  color: NeuColors.darkTextMuted,
                 ),
               ),
             ],

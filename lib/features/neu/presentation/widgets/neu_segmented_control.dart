@@ -22,7 +22,7 @@ class NeuSegmentedControl extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(5.r),
       decoration: BoxDecoration(
-        color: NeuColors.inputBorder.withValues(alpha: 0.5),
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(16.r),
       ),
       child: Row(
@@ -36,17 +36,10 @@ class NeuSegmentedControl extends StatelessWidget {
                   padding: EdgeInsets.symmetric(vertical: 11.h),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: option == value ? Colors.white : Colors.transparent,
+                    color: option == value
+                        ? NeuColors.primary
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12.r),
-                    boxShadow: option == value
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
                   ),
                   child: Text(
                     option,
@@ -55,9 +48,7 @@ class NeuSegmentedControl extends StatelessWidget {
                       fontWeight: option == value
                           ? FontWeight.w700
                           : FontWeight.w500,
-                      color: option == value
-                          ? NeuColors.textDark
-                          : NeuColors.textSecondary,
+                      color: option == value ? Colors.white : Colors.white60,
                     ),
                   ),
                 ),

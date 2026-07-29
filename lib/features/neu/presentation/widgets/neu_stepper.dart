@@ -27,16 +27,16 @@ class NeuStepper extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: NeuColors.darkCard,
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: NeuColors.inputBorder),
+        border: Border.all(color: NeuColors.darkBorder),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
-              style: TextStyle(fontSize: 14.sp, color: NeuColors.textDark),
+              style: TextStyle(fontSize: 14.sp, color: Colors.white),
             ),
           ),
           _StepButton(
@@ -51,7 +51,7 @@ class NeuStepper extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15.sp,
                 fontWeight: FontWeight.w700,
-                color: NeuColors.textDark,
+                color: NeuColors.primary,
               ),
             ),
           ),
@@ -79,13 +79,13 @@ class _StepButton extends StatelessWidget {
         width: 36.r,
         height: 36.r,
         decoration: BoxDecoration(
-          color: NeuColors.accentYellow.withValues(alpha: enabled ? 1 : 0.5),
+          color: Colors.white.withValues(alpha: enabled ? 0.12 : 0.06),
           borderRadius: BorderRadius.circular(9.r),
         ),
         child: Icon(
           icon,
           size: 18,
-          color: enabled ? NeuColors.primary : NeuColors.textMuted,
+          color: enabled ? Colors.white : Colors.white38,
         ),
       ),
     );

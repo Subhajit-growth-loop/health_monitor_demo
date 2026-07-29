@@ -30,10 +30,10 @@ class NeuCheckboxTile extends StatelessWidget {
               width: 22.r,
               height: 22.r,
               decoration: BoxDecoration(
-                color: selected ? NeuColors.primary : Colors.white,
+                color: selected ? NeuColors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(6.r),
                 border: Border.all(
-                  color: selected ? NeuColors.primary : NeuColors.inputBorder,
+                  color: selected ? NeuColors.primary : NeuColors.darkBorder,
                   width: 1.5,
                 ),
               ),
@@ -52,9 +52,7 @@ class NeuCheckboxTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected
-                      ? NeuColors.primaryDark
-                      : NeuColors.textSecondary,
+                  color: selected ? Colors.white : Colors.white60,
                 ),
               ),
             ),

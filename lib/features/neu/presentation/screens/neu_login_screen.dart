@@ -100,8 +100,10 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return NeuBaseScreen(
-      backgroundColor: NeuColors.screenBackground,
-      backgroundImage: 'assets/images/auth_sc_bg.png',
+      backgroundColor: NeuColors.darkBackground,
+      backgroundImage: 'assets/images/auth_sc_dark_bg.png',
+      lightStatusIcons: true,
+      navigationBarColor: NeuColors.darkBackground,
       resizeToAvoidBottomInset: true,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -110,7 +112,11 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
           children: [
             SizedBox(height: 32.h),
             Center(
-              child: NeuLogo(size: 60.r, color: NeuColors.primary),
+              child: NeuLogo(
+                size: 60.r,
+                color: NeuColors.primary,
+                asset: 'assets/icons/logo_white.png',
+              ),
             ),
             SizedBox(height: 10.h),
             Center(
@@ -119,7 +125,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                 style: NeuTypography.serif(
                   fontSize: 40.sp,
                   fontWeight: FontWeight.w700,
-                  color: NeuColors.textDark,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -129,7 +135,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               style: NeuTypography.serif(
                 fontSize: 26.sp,
                 fontWeight: FontWeight.w700,
-                color: NeuColors.textDark,
+                color: NeuColors.primary,
                 letterSpacing: -0.4,
               ),
             ),
@@ -142,10 +148,11 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
               errorText: _emailError,
+              dark: true,
               onChanged: (_) => setState(() => _emailError = null),
               prefixIcon: const Icon(
                 Icons.mail_outline_rounded,
-                color: NeuColors.textMuted,
+                color: NeuColors.darkTextMuted,
                 size: 20,
               ),
             ),
@@ -158,11 +165,12 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.password],
               errorText: _passwordError,
+              dark: true,
               onChanged: (_) => setState(() => _passwordError = null),
               onSubmitted: (_) => _login(),
               prefixIcon: const Icon(
                 Icons.lock_outline_rounded,
-                color: NeuColors.textMuted,
+                color: NeuColors.darkTextMuted,
                 size: 20,
               ),
               suffixIcon: IconButton(
@@ -170,7 +178,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                   _obscurePassword
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: NeuColors.textMuted,
+                  color: NeuColors.darkTextMuted,
                   size: 20,
                 ),
                 onPressed: () =>
@@ -184,7 +192,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                 'Forgot password?',
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: NeuColors.primaryDark,
+                  color: Colors.white60,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
                 ),
@@ -206,7 +214,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                   text: TextSpan(
                     style: TextStyle(
                       fontSize: 14.sp,
-                      color: NeuColors.textSecondary,
+                      color: Colors.white60,
                     ),
                     children: const [
                       TextSpan(text: 'I have a '),

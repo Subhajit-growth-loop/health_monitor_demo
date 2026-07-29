@@ -26,10 +26,10 @@ class NeuChoiceChip extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 11.h),
         decoration: BoxDecoration(
-          color: selected ? NeuColors.primary : Colors.white,
+          color: selected ? NeuColors.primary : NeuColors.darkCard,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: selected ? NeuColors.primary : NeuColors.inputBorder,
+            color: selected ? NeuColors.primary : NeuColors.darkBorder,
           ),
         ),
         child: Text(
@@ -37,7 +37,7 @@ class NeuChoiceChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : NeuColors.textSecondary,
+            color: selected ? Colors.white : Colors.white60,
           ),
         ),
       ),

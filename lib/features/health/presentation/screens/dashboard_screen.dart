@@ -1,44 +1,32 @@
-import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/settings/app_settings.dart';
+import '../../../../core/theme/neu_colors.dart';
+import '../../../../core/theme/neu_typography.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/health_metric_type.dart';
-import '../../domain/entities/permission_state.dart';
 import '../providers/dashboard_providers.dart';
 import '../providers/health_providers.dart';
 import '../providers/permission_controller.dart';
 import '../providers/sync_controller.dart';
-import '../widgets/alert_banner.dart';
-import '../widgets/metric_card.dart';
-import '../widgets/sync_status_bar.dart';
+import '../widgets/static_sparkline.dart';
 import 'metric_detail_screen.dart';
 import 'sync_settings_screen.dart';
+import 'your_vitals_screen.dart';
+import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 
-Future<void> _handleGrantPermission(
-  WidgetRef ref,
-  HealthPermissionState perms,
-) async {
-  final anyDenied = perms.grants.values.any((g) => g == PermissionGrant.denied);
+// ── Export helpers ────────────────────────────────────────────────────────────
 
-  if (Platform.isIOS && anyDenied) {
-    await launchUrl(Uri.parse('app-settings:'));
-    return;
-  }
-  await ref.read(permissionControllerProvider.notifier).requestAll();
-}
-
-/// Bottom sheet offering the two export delivery modes, then runs the chosen
-/// one and reports the outcome. Writes a JSON file in the `health` package's
-/// own record shape (works on both HealthKit and Health Connect).
 Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
   final mode = await showModalBottomSheet<_ExportMode>(
     context: context,
     showDragHandle: true,
-    builder: (sheetContext) => SafeArea(
+    builder: (ctx) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -48,7 +36,10 @@ Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Export health data (JSON)',
-                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -56,13 +47,13 @@ Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
             leading: const Icon(Icons.ios_share_rounded),
             title: const Text('Share'),
             subtitle: const Text('Send via the share sheet or Save to Files'),
-            onTap: () => Navigator.of(sheetContext).pop(_ExportMode.share),
+            onTap: () => Navigator.of(ctx).pop(_ExportMode.share),
           ),
           ListTile(
             leading: const Icon(Icons.save_alt_rounded),
             title: const Text('Save to device'),
             subtitle: const Text('Write the file to your device storage'),
-            onTap: () => Navigator.of(sheetContext).pop(_ExportMode.save),
+            onTap: () => Navigator.of(ctx).pop(_ExportMode.save),
           ),
           SizedBox(height: 8.h),
         ],
@@ -71,330 +62,1221 @@ Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
   );
 
   if (mode == null || !context.mounted) return;
-
   final messenger = ScaffoldMessenger.of(context);
   final service = ref.read(healthExportServiceProvider);
-  messenger.showSnackBar(
-    const SnackBar(content: Text('Preparing export…')),
-  );
-
+  messenger.showSnackBar(const SnackBar(content: Text('Preparing export…')));
   try {
     final export = mode == _ExportMode.share
         ? await service.share()
         : await service.save();
     messenger.hideCurrentSnackBar();
-    if (export == null) {
-      // User dismissed the save picker — nothing to report.
-      return;
-    }
+    if (export == null) return;
     if (export.recordCount == 0) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No health data to export. Grant access and refresh first.',
-          ),
-        ),
-      );
+      messenger.showSnackBar(const SnackBar(
+        content: Text(
+            'No health data to export. Grant access and refresh first.'),
+      ));
     } else {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            mode == _ExportMode.save
-                ? 'Saved ${export.recordCount} records (${export.sizeLabel}) to device.'
-                : 'Exported ${export.recordCount} records (${export.sizeLabel}).',
-          ),
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          mode == _ExportMode.save
+              ? 'Saved ${export.recordCount} records (${export.sizeLabel}) to device.'
+              : 'Exported ${export.recordCount} records (${export.sizeLabel}).',
         ),
-      );
+      ));
     }
   } catch (e) {
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(content: Text('Export failed: $e')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text('Export failed: $e')));
   }
 }
 
 enum _ExportMode { share, save }
 
-bool _isSameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+// ── Main screen ───────────────────────────────────────────────────────────────
 
-String _dateLabel(DateTime date) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final yesterday = today.subtract(const Duration(days: 1));
-  if (_isSameDay(date, today)) return 'Today';
-  if (_isSameDay(date, yesterday)) return 'Yesterday';
-  return Fmt.dateShort(date);
-}
-
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedDate = ref.watch(selectedDateProvider);
-    final summary = ref.watch(todaySummaryProvider);
-    final permsAsync = ref.watch(permissionControllerProvider);
-    final perms =
-        permsAsync.valueOrNull ?? HealthPermissionState.allNotRequested();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final isToday = _isSameDay(selectedDate, today);
-    final dateLabel = _dateLabel(selectedDate);
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  int _tabIndex = 0;
 
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            SizedBox(width: 4.w),
-            IconButton(
-              icon: Icon(Icons.chevron_left_rounded, size: 24.r),
-              tooltip: 'Previous day',
-              onPressed: () {
-                ref.read(selectedDateProvider.notifier).state =
-                    selectedDate.subtract(const Duration(days: 1));
-              },
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime(2020),
-                    lastDate: today,
-                  );
-                  if (picked != null && context.mounted) {
-                    ref.read(selectedDateProvider.notifier).state =
-                        DateTime(picked.year, picked.month, picked.day);
-                  }
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            dateLabel,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.arrow_drop_down_rounded, size: 20.r),
-                      ],
-                    ),
-                    Text(
-                      'Your health at a glance',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right_rounded,
-                size: 24.r,
-                color: isToday
-                    ? Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.3)
-                    : null,
-              ),
-              tooltip: 'Next day',
-              onPressed: isToday
-                  ? null
-                  : () {
-                      ref.read(selectedDateProvider.notifier).state =
-                          selectedDate.add(const Duration(days: 1));
-                    },
-            ),
-          ],
-        ),
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissions();
+      // Pull fresh HealthKit data every time the dashboard is opened.
+      ref.read(syncControllerProvider.notifier).refreshData();
+    });
+  }
+
+  Future<void> _checkPermissions() async {
+    if (!mounted) return;
+    final prefs = ref.read(sharedPreferencesProvider);
+    final alreadyRequested =
+        prefs.getBool('neu_health_permissions_requested') ?? false;
+    if (alreadyRequested) return;
+    if (!mounted) return;
+    _showPermissionDialog();
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Health Access Required'),
+        content: const Text(
+            'Allow access to your health data to see your metrics.'),
         actions: [
-          IconButton(
-            tooltip: 'Export health data as JSON',
-            onPressed: () => _handleExport(context, ref),
-            icon: const Icon(Icons.download_rounded),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
           ),
-          IconButton(
-            tooltip: 'Refresh from Health platform',
-            onPressed: () =>
-                ref.read(syncControllerProvider.notifier).refreshData(),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          IconButton(
-            tooltip: 'Sync settings',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SyncSettingsScreen()),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ref
+                  .read(permissionControllerProvider.notifier)
+                  .requestAll();
+              // Mark as requested so the dialog never shows again
+              await ref
+                  .read(sharedPreferencesProvider)
+                  .setBool('neu_health_permissions_requested', true);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: NeuColors.primary,
             ),
-            icon: const Icon(Icons.sync_rounded),
+            child: const Text('Grant Access'),
           ),
-          SizedBox(width: 4.w),
         ],
       ),
-      body: SafeArea(
-        top: false,
-        child: RefreshIndicator(
-          onRefresh: () =>
-              ref.read(syncControllerProvider.notifier).refreshData(),
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 32.h),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    final unselected =
+        isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return Scaffold(
+      extendBody: true,
+      backgroundColor:
+          isDark ? NeuColors.darkBackground : NeuColors.screenBackground,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => setState(() => _tabIndex = 0),
+        backgroundColor: NeuColors.primary,
+        elevation: 4,
+        shape: const CircleBorder(),
+        child: Image.asset(
+          'assets/icons/logo_white.png',
+          width: 28.r,
+          height: 28.r,
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const _WaveNotchedShape(),
+        notchMargin: 8.0,
+        color: isDark ? NeuColors.darkSurface : Colors.white,
+        padding: EdgeInsets.zero,
+        child: SizedBox(
+          height: 56.h,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const SyncStatusBar(),
-              SizedBox(height: 12.h),
-              const AlertBanner(),
-              SizedBox(height: 8.h),
-              if (!perms.anyGranted)
-                _PermissionPrompt(
-                  onGrant: () => ref
-                      .read(permissionControllerProvider.notifier)
-                      .requestAll(),
-                ),
-              summary.when(
-                loading: () => Padding(
-                  padding: EdgeInsets.only(top: 80.h),
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Padding(
-                  padding: EdgeInsets.only(top: 40.h),
-                  child: Center(child: Text('Could not load data: $e')),
-                ),
-                data: (values) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final category in HealthCategory.values)
-                      _CategorySection(
-                        category: category,
-                        values: values,
-                        perms: perms,
-                        onOpen: (type) => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MetricDetailScreen(type: type),
-                          ),
-                        ),
-                        onRequestPermission: () =>
-                            _handleGrantPermission(ref, perms),
-                      ),
-                  ],
-                ),
+              _NavItem(
+                icon: Icons.space_dashboard_rounded,
+                label: 'Today',
+                selected: _tabIndex == 0,
+                unselectedColor: unselected,
+                onTap: () => setState(() => _tabIndex = 0),
+              ),
+              _NavItem(
+                icon: Icons.auto_stories_rounded,
+                label: 'Learn',
+                selected: _tabIndex == 1,
+                unselectedColor: unselected,
+                onTap: () => setState(() => _tabIndex = 1),
+              ),
+              SizedBox(width: 60.w),
+              _NavItem(
+                icon: Icons.bar_chart_rounded,
+                label: 'Progress',
+                selected: _tabIndex == 2,
+                unselectedColor: unselected,
+                onTap: () => setState(() => _tabIndex = 2),
+              ),
+              _NavItem(
+                icon: Icons.person_rounded,
+                label: 'Profile',
+                selected: _tabIndex == 3,
+                unselectedColor: unselected,
+                onTap: () => setState(() => _tabIndex = 3),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-/// One dashboard section per [HealthCategory]: a header followed by a grid of
-/// that category's (non-hidden) metric cards.
-class _CategorySection extends StatelessWidget {
-  const _CategorySection({
-    required this.category,
-    required this.values,
-    required this.perms,
-    required this.onOpen,
-    required this.onRequestPermission,
-  });
-
-  final HealthCategory category;
-  final Map<HealthMetricType, double> values;
-  final HealthPermissionState perms;
-  final void Function(HealthMetricType) onOpen;
-  final VoidCallback onRequestPermission;
-
-  @override
-  Widget build(BuildContext context) {
-    final types = HealthMetricType.values
-        .where((t) => t.category == category && !t.hiddenFromDashboard)
-        .toList(growable: false);
-    if (types.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(4.w, 8.h, 4.w, 12.h),
-          child: Text(
-            category.label,
-            style: TextStyle(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.7),
-            ),
-          ),
-        ),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12.r,
-          crossAxisSpacing: 12.r,
-          childAspectRatio: 1.12,
-          children: [
-            for (final type in types)
-              MetricCard(
-                type: type,
-                value: values[type] ?? 0,
-                secondaryValue:
-                    type == HealthMetricType.bloodPressureSystolic
-                        ? values[HealthMetricType.bloodPressureDiastolic]
-                        : null,
-                granted: perms.isGranted(type),
-                onTap: () => onOpen(type),
-                onRequestPermission: onRequestPermission,
-              ),
-          ],
-        ),
-        SizedBox(height: 8.h),
-      ],
-    );
-  }
-}
-
-class _PermissionPrompt extends StatelessWidget {
-  const _PermissionPrompt({required this.onGrant});
-  final VoidCallback onGrant;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Row(
+      body: IndexedStack(
+        index: _tabIndex,
         children: [
-          Icon(Icons.privacy_tip_rounded, color: scheme.primary, size: 24.r),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Text(
-              'Allow access to your health data to see your metrics.',
-              style: TextStyle(fontSize: 13.sp),
-            ),
-          ),
-          FilledButton(onPressed: onGrant, child: const Text('Allow')),
+          _TodayTab(isDark: isDark),
+          _LearnTab(isDark: isDark),
+          _ProgressTab(isDark: isDark),
+          _ProfileTab(isDark: isDark),
         ],
       ),
     );
   }
 }
+
+// ── Custom wave-notch shape for BottomAppBar ──────────────────────────────────
+
+class _WaveNotchedShape extends NotchedShape {
+  const _WaveNotchedShape();
+
+  @override
+  Path getOuterPath(Rect host, Rect? guest) {
+    if (guest == null || !host.overlaps(guest)) {
+      return Path()..addRect(host);
+    }
+
+    final fabRadius = guest.width / 2 + 8.0;
+    final cx = guest.center.dx;
+
+    return Path()
+      ..moveTo(host.left, host.top)
+      ..lineTo(cx - fabRadius * 2.0, host.top)
+      // Left shoulder
+      ..cubicTo(
+        cx - fabRadius * 1.3, host.top,
+        cx - fabRadius, host.top + fabRadius * 0.8,
+        cx, host.top + fabRadius * 0.85,
+      )
+      // Right shoulder
+      ..cubicTo(
+        cx + fabRadius, host.top + fabRadius * 0.8,
+        cx + fabRadius * 1.3, host.top,
+        cx + fabRadius * 2.0, host.top,
+      )
+      ..lineTo(host.right, host.top)
+      ..lineTo(host.right, host.bottom)
+      ..lineTo(host.left, host.bottom)
+      ..close();
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.unselectedColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final Color unselectedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? NeuColors.primary : unselectedColor;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 22.r),
+            SizedBox(height: 3.h),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.sp,
+                color: color,
+                fontWeight:
+                    selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Today Tab ─────────────────────────────────────────────────────────────────
+
+class _TodayTab extends ConsumerWidget {
+  const _TodayTab({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return SafeArea(
+      child: RefreshIndicator(
+        color: NeuColors.primary,
+        onRefresh: () =>
+            ref.read(syncControllerProvider.notifier).refreshData(),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(0, 0, 0, 32.h),
+          children: [
+            // ── Header row ───────────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 40.r,
+                    height: 40.r,
+                    decoration: BoxDecoration(
+                      color: isDark ? NeuColors.darkCard : NeuColors.accentYellow,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'N',
+                        style: NeuTypography.sans(
+                          fontSize: 14.sp,
+                          color: NeuColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        greeting,
+                        style: NeuTypography.sans(
+                          fontSize: 13.sp,
+                          color: subtle,
+                        ),
+                      ),
+                      Text(
+                        ref.watch(onboardingControllerProvider)
+                                .valueOrNull
+                                ?.profile
+                                .firstName
+                                .isNotEmpty ==
+                            true
+                            ? ref
+                                .watch(onboardingControllerProvider)
+                                .valueOrNull!
+                                .profile
+                                .firstName
+                            : 'Good day',
+                        style: NeuTypography.serif(
+                          fontSize: 22.sp,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Bell icon with badge
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Notifications coming soon')),
+                      );
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 40.r,
+                          height: 40.r,
+                          decoration: BoxDecoration(
+                            color: isDark ? NeuColors.darkCard : Colors.white,
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: isDark
+                                  ? NeuColors.darkBorder
+                                  : NeuColors.inputBorder,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.notifications_none_rounded,
+                            color: isDark ? Colors.white : NeuColors.textDark,
+                            size: 20.r,
+                          ),
+                        ),
+                        // Positioned(
+                        //   top: 6.r,
+                        //   right: 6.r,
+                        //   child: Container(
+                        //     width: 6.r,
+                        //     height: 6.r,
+                        //     decoration: const BoxDecoration(
+                        //       color: Colors.red,
+                        //       shape: BoxShape.circle,
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16.h),
+
+            // ── Banner placeholder ────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: SizedBox(
+                height: 120.h,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? NeuColors.darkCard
+                        : NeuColors.featureBackground,
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+
+            // ── Insight card ──────────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: _InsightCard(isDark: isDark),
+            ),
+            SizedBox(height: 16.h),
+
+            // ── Morning check-in card ─────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: _MorningCheckinCard(isDark: isDark),
+            ),
+            SizedBox(height: 20.h),
+
+            // ── Your vitals row ───────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Row(
+                children: [
+                  Text(
+                    'Your vitals',
+                    style: NeuTypography.sans(
+                      fontSize: 16.sp,
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const YourVitalsScreen()),
+                    ),
+                    child: Text(
+                      'See all',
+                      style: NeuTypography.sans(
+                        fontSize: 13.sp,
+                        color: NeuColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 10.h),
+
+            // ── Mini vitals grid ──────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: _VitalsMiniGrid(isDark: isDark),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Insight card (gauge + scores) ─────────────────────────────────────────────
+
+class _InsightCard extends ConsumerWidget {
+  const _InsightCard({required this.isDark});
+  final bool isDark;
+
+  String _formatSleepHours(double totalHours) {
+    final h = totalHours.floor();
+    final m = ((totalHours - h) * 60).round();
+    if (h == 0) return '${m}m';
+    if (m == 0) return '${h}h';
+    return '${h}h ${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bg = isDark ? NeuColors.darkCard : Colors.white;
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+    final trackColor =
+        isDark ? NeuColors.darkBorder : const Color(0xFFEDE5DC);
+    final summary = ref.watch(todaySummaryProvider);
+
+    return Container(
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder,
+        ),
+      ),
+      child: summary.when(
+        loading: () => Center(
+          child: Padding(
+            padding: EdgeInsets.all(20.r),
+            child: CircularProgressIndicator(
+              color: NeuColors.primary,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+        error: (e, _) => Text(
+          'Unable to load scores',
+          style: TextStyle(color: subtle, fontSize: 12.sp),
+        ),
+        data: (values) {
+          final sleepVal = values[HealthMetricType.sleep] ?? 0.0;
+          final sleepText = sleepVal > 0 ? _formatSleepHours(sleepVal) : '--';
+
+          final nonZeroVals = values.values.where((v) => v > 0).toList();
+          final overall = nonZeroVals.isEmpty
+              ? 0.0
+              : (nonZeroVals.reduce((a, b) => a + b) /
+                      nonZeroVals.length /
+                      100)
+                  .clamp(0.0, 1.0);
+
+          final glucoseVal = values[HealthMetricType.bloodGlucose] ?? 0.0;
+          final stepsVal = values[HealthMetricType.steps] ?? 0.0;
+
+          final glucoseScore = (glucoseVal / 200.0).clamp(0.0, 1.0);
+          final stepsScore = (stepsVal / 10000.0).clamp(0.0, 1.0);
+          final sleepScore = (sleepVal / 8.0).clamp(0.0, 1.0);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: sleep value + "On Track" pill
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sleepText,
+                        style: NeuTypography.serif(
+                          fontSize: 22.sp,
+                          color: fg,
+                        ),
+                      ),
+                      Text(
+                        'Steady',
+                        style: NeuTypography.sans(
+                          fontSize: 13.sp,
+                          color: subtle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 12.w, vertical: 6.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(
+                        color:
+                            const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'On Track',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: const Color(0xFF2E7D32),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16.h),
+
+              // Gauge
+              SizedBox(
+                width: double.infinity,
+                height: 110.r,
+                child: CustomPaint(
+                  painter: _GaugePainter(
+                    progress: overall.clamp(0.0, 1.0),
+                    trackColor: trackColor,
+                    fillColor: NeuColors.primary,
+                  ),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 8.h),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${(overall * 100).round()}%',
+                            style: NeuTypography.serif(
+                              fontSize: 24.sp,
+                              color: fg,
+                            ),
+                          ),
+                          Text(
+                            'Time in range',
+                            style: NeuTypography.sans(
+                              fontSize: 12.sp,
+                              color: subtle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Divider(
+                  color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder),
+              SizedBox(height: 12.h),
+
+              // Score circles row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _ScoreCircle(
+                    label: 'Glucose',
+                    score: glucoseScore,
+                    color: NeuColors.primary,
+                    trackColor: trackColor,
+                    fg: fg,
+                    subtle: subtle,
+                  ),
+                  _ScoreCircle(
+                    label: 'Movement',
+                    score: stepsScore,
+                    color: const Color(0xFF8D9E39),
+                    trackColor: trackColor,
+                    fg: fg,
+                    subtle: subtle,
+                  ),
+                  _ScoreCircle(
+                    label: 'Sleep',
+                    score: sleepScore,
+                    color: const Color(0xFF4A7C59),
+                    trackColor: trackColor,
+                    fg: fg,
+                    subtle: subtle,
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GaugePainter extends CustomPainter {
+  const _GaugePainter({
+    required this.progress,
+    required this.trackColor,
+    required this.fillColor,
+  });
+
+  final double progress;
+  final Color trackColor;
+  final Color fillColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height - 4;
+    final radius = size.width / 2 - 8;
+
+    final base = Paint()
+      ..strokeWidth = 10
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+      math.pi,
+      math.pi,
+      false,
+      base..color = trackColor,
+    );
+
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+        math.pi,
+        math.pi * progress.clamp(0.0, 1.0),
+        false,
+        base..color = fillColor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GaugePainter old) =>
+      old.progress != progress ||
+      old.trackColor != trackColor ||
+      old.fillColor != fillColor;
+}
+
+class _ScoreCircle extends StatelessWidget {
+  const _ScoreCircle({
+    required this.label,
+    required this.score,
+    required this.color,
+    required this.trackColor,
+    required this.fg,
+    required this.subtle,
+  });
+
+  final String label;
+  final double score;
+  final Color color;
+  final Color trackColor;
+  final Color fg;
+  final Color subtle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 44.r,
+          height: 44.r,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CircularProgressIndicator(
+                value: score,
+                strokeWidth: 5,
+                backgroundColor: trackColor,
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+              Text(
+                '${(score * 100).round()}',
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 4.h),
+        Text(label, style: TextStyle(fontSize: 10.sp, color: subtle)),
+      ],
+    );
+  }
+}
+
+// ── Morning check-in card ─────────────────────────────────────────────────────
+
+class _MorningCheckinCard extends StatelessWidget {
+  const _MorningCheckinCard({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? NeuColors.darkCard : const Color(0xFFFAF3EE);
+    final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: isDark
+              ? NeuColors.darkBorder
+              : const Color(0xFFE6DED5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48.r,
+            height: 48.r,
+            decoration: BoxDecoration(
+              color: NeuColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14.r),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.favorite_rounded,
+                color: NeuColors.primary,
+                size: 22.r,
+              ),
+            ),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Morning Check-in',
+                  style: NeuTypography.sans(
+                    fontSize: 14.sp,
+                    color: isDark ? Colors.white : NeuColors.textDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'A quick read on energy & stress',
+                  style: NeuTypography.sans(
+                    fontSize: 12.sp,
+                    color: subtle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Coming soon')),
+              );
+            },
+            child: Container(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF18B5C),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Text(
+                'Start',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Vitals mini grid ──────────────────────────────────────────────────────────
+
+class _VitalsMiniGrid extends ConsumerWidget {
+  const _VitalsMiniGrid({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summary = ref.watch(todaySummaryProvider);
+
+    return summary.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (values) {
+        // Prefer types with data, else show bloodGlucose + steps
+        const candidates = [
+          HealthMetricType.bloodGlucose,
+          HealthMetricType.steps,
+          HealthMetricType.heartRate,
+          HealthMetricType.weight,
+        ];
+        final withData =
+            candidates.where((t) => (values[t] ?? 0) > 0).take(2).toList();
+        final types = withData.isNotEmpty
+            ? withData
+            : [HealthMetricType.bloodGlucose, HealthMetricType.steps];
+
+        return GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12.r,
+          crossAxisSpacing: 12.r,
+          childAspectRatio: 0.95,
+          children: [
+            for (final type in types)
+              _VitalMiniCard(
+                type: type,
+                summaryValue: values[type] ?? 0,
+                isDark: isDark,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _VitalMiniCard extends StatelessWidget {
+  const _VitalMiniCard({
+    required this.type,
+    required this.summaryValue,
+    required this.isDark,
+  });
+
+  final HealthMetricType type;
+  final double summaryValue;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? NeuColors.darkCard : Colors.white;
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => MetricDetailScreen(type: type)),
+      ),
+      child: Container(
+        padding: EdgeInsets.all(14.r),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 30.r,
+                  height: 30.r,
+                  decoration: BoxDecoration(
+                    color: NeuColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Icon(type.icon, color: NeuColors.primary, size: 16.r),
+                ),
+                SizedBox(width: 8.w),
+                Flexible(
+                  child: Text(
+                    type.label,
+                    style: NeuTypography.sans(
+                      fontSize: 12.sp,
+                      color: fg,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            StaticSparkline(type: type, height: 42.h),
+            SizedBox(height: 6.h),
+            if (type == HealthMetricType.steps && summaryValue > 0)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    Fmt.metricValue(type, summaryValue),
+                    style: NeuTypography.serif(fontSize: 20.sp, color: fg),
+                  ),
+                  Text(
+                    '/6,000',
+                    style: NeuTypography.sans(fontSize: 11.sp, color: subtle),
+                  ),
+                ],
+              )
+            else
+              Text(
+                summaryValue > 0 ? Fmt.metricValue(type, summaryValue) : '—',
+                style: NeuTypography.serif(fontSize: 20.sp, color: fg),
+              ),
+            if (type != HealthMetricType.steps && type.unit.isNotEmpty)
+              Text(type.unit, style: TextStyle(fontSize: 11.sp, color: subtle)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Learn Tab ─────────────────────────────────────────────────────────────────
+
+class _LearnTab extends StatelessWidget {
+  const _LearnTab({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final subtle =
+        isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(20.r),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Learn',
+              style: NeuTypography.serif(fontSize: 24.sp, color: fg),
+            ),
+            SizedBox(height: 40.h),
+            Center(
+              child: Text(
+                'Articles and insights coming soon.',
+                style: TextStyle(color: subtle, fontSize: 14.sp),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Progress Tab ──────────────────────────────────────────────────────────────
+
+class _ProgressTab extends StatelessWidget {
+  const _ProgressTab({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(20.r),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Progress',
+              style: NeuTypography.serif(fontSize: 24.sp, color: fg),
+            ),
+            SizedBox(height: 40.h),
+            Center(
+              child: Text(
+                'Progress coming soon.',
+                style: TextStyle(color: subtle, fontSize: 14.sp),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Profile Tab ───────────────────────────────────────────────────────────────
+
+class _ProfileTab extends ConsumerWidget {
+  const _ProfileTab({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark;
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final cardBg = isDark ? NeuColors.darkCard : Colors.white;
+    final cardBorder =
+        isDark ? NeuColors.darkBorder : NeuColors.inputBorder;
+    final subtle =
+        isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+
+    return SafeArea(
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 40.h),
+        children: [
+          Text(
+            'Profile',
+            style: NeuTypography.serif(fontSize: 24.sp, color: fg),
+          ),
+          SizedBox(height: 24.h),
+          _SectionLabel(label: 'Appearance', isDark: isDark),
+          SizedBox(height: 10.h),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: cardBorder),
+            ),
+            child: _ProfileTile(
+              icon: Icons.dark_mode_rounded,
+              title: 'Dark mode',
+              isDark: isDark,
+              trailing: Switch(
+                value: isDarkMode,
+                onChanged: (v) => ref
+                    .read(themeModeProvider.notifier)
+                    .setMode(v ? ThemeMode.dark : ThemeMode.light),
+                activeThumbColor: NeuColors.primary,
+              ),
+            ),
+          ),
+          SizedBox(height: 20.h),
+          _SectionLabel(label: 'Data', isDark: isDark),
+          SizedBox(height: 10.h),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: cardBorder),
+            ),
+            child: Column(
+              children: [
+                _ProfileTile(
+                  icon: Icons.sync_rounded,
+                  title: 'Sync settings',
+                  isDark: isDark,
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: subtle,
+                    size: 20.r,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const SyncSettingsScreen()),
+                  ),
+                ),
+                Divider(height: 0, color: cardBorder, indent: 52.w),
+                _ProfileTile(
+                  icon: Icons.download_rounded,
+                  title: 'Export health data',
+                  isDark: isDark,
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: subtle,
+                    size: 20.r,
+                  ),
+                  onTap: () => _handleExport(context, ref),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label, required this.isDark});
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11.sp,
+        fontWeight: FontWeight.w600,
+        color: isDark ? NeuColors.darkTextMuted : NeuColors.textMuted,
+        letterSpacing: 1.0,
+      ),
+    );
+  }
+}
+
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    required this.isDark,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final bool isDark;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = isDark ? Colors.white : NeuColors.textDark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        child: Row(
+          children: [
+            Icon(icon, color: NeuColors.primary, size: 20.r),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: fg,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+

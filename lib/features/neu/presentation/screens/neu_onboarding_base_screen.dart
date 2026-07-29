@@ -53,12 +53,13 @@ class NeuOnboardingShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NeuBaseScreen(
-      backgroundColor: NeuColors.screenBackground,
+      backgroundColor: NeuColors.darkBackground,
       backgroundImage: backgroundImage,
-      // Let the white CTA bar reach the physical bottom edge and tint the
+      lightStatusIcons: true,
+      // Let the dark CTA bar reach the physical bottom edge and tint the
       // Android system nav bar to match.
       bottomSafeArea: false,
-      navigationBarColor: Colors.white,
+      navigationBarColor: NeuColors.darkBackground,
       child: Column(
         children: [
           if (showBack)
@@ -81,7 +82,7 @@ class NeuOnboardingShell extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 4,
-                backgroundColor: NeuColors.inputBorder,
+                backgroundColor: NeuColors.darkBorder,
                 color: NeuColors.primary,
               ),
             ),
@@ -104,7 +105,7 @@ class NeuOnboardingShell extends StatelessWidget {
                       style: NeuTypography.serif(
                         fontSize: 22.sp,
                         fontWeight: FontWeight.w700,
-                        color: NeuColors.textDark,
+                        color: Colors.white,
                         height: 1.15,
                       ),
                     ),
@@ -117,12 +118,12 @@ class NeuOnboardingShell extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            color: Colors.white,
+            color: NeuColors.darkBackground,
             padding: EdgeInsets.fromLTRB(
               18.w,
               10.h,
               18.w,
-              // Own bottom padding since bottomSafeArea is off, so the white
+              // Own bottom padding since bottomSafeArea is off, so the dark
               // fill extends through the home-indicator inset.
               16.h + MediaQuery.of(context).padding.bottom,
             ),
@@ -163,14 +164,14 @@ class _CoachRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
-                    color: NeuColors.textDark,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
                   'Your health coach',
                   style: TextStyle(
                     fontSize: 12.5.sp,
-                    color: NeuColors.textSecondary,
+                    color: NeuColors.darkTextMuted,
                   ),
                 ),
               ],
@@ -181,7 +182,7 @@ class _CoachRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w700,
-              color: NeuColors.textSecondary,
+              color: NeuColors.darkTextMuted,
               letterSpacing: 0.5,
             ),
           ),
@@ -203,13 +204,13 @@ class _BackButton extends StatelessWidget {
         width: 42.w,
         height: 34.h,
         decoration: BoxDecoration(
-          color: NeuColors.screenBackground,
+          color: NeuColors.darkCard,
           borderRadius: BorderRadius.circular(11.r),
-          border: Border.all(color: NeuColors.inputBorder),
+          border: Border.all(color: NeuColors.darkBorder),
         ),
         child: const Icon(
           Icons.chevron_left_rounded,
-          color: NeuColors.textDark,
+          color: Colors.white,
           size: 22,
         ),
       ),

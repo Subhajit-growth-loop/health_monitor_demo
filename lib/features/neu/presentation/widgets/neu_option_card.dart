@@ -28,12 +28,10 @@ class NeuOptionCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(14.r),
         decoration: BoxDecoration(
-          color: selected
-              ? NeuColors.primary.withValues(alpha: 0.06)
-              : Colors.white,
+          color: NeuColors.darkCard,
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
-            color: selected ? NeuColors.primary : NeuColors.inputBorder,
+            color: selected ? NeuColors.primary : NeuColors.darkBorder,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -43,9 +41,9 @@ class NeuOptionCard extends StatelessWidget {
               width: 42.r,
               height: 42.r,
               decoration: BoxDecoration(
-                color: selected
-                    ? Colors.white
-                    : NeuColors.primary.withValues(alpha: 0.08),
+                color: NeuColors.primary.withValues(
+                  alpha: selected ? 0.25 : 0.15,
+                ),
                 borderRadius: BorderRadius.circular(11.r),
               ),
               child: Icon(icon, color: NeuColors.primary, size: 20),
@@ -60,7 +58,7 @@ class NeuOptionCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.textDark,
+                      color: Colors.white,
                     ),
                   ),
                   SizedBox(height: 2.h),
@@ -68,7 +66,7 @@ class NeuOptionCard extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 13.sp,
-                      color: NeuColors.textSecondary,
+                      color: NeuColors.darkTextMuted,
                     ),
                   ),
                 ],
@@ -81,7 +79,7 @@ class NeuOptionCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? NeuColors.primary : NeuColors.inputBorder,
+                  color: selected ? NeuColors.primary : NeuColors.darkBorder,
                   width: 2,
                 ),
               ),
