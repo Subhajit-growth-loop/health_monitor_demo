@@ -1,40 +1,78 @@
+import 'dart:convert';
+
 import 'onboarding_draft.dart';
 import 'user_profile.dart';
 
-/// Result of `POST /auth/referral/verify`.
-class ReferralResult {
-  const ReferralResult({required this.valid, this.memberName});
-  final bool valid;
-  final String? memberName;
-
-  factory ReferralResult.fromJson(Map<String, dynamic> json) => ReferralResult(
-    valid: json['valid'] as bool? ?? false,
-    memberName: json['memberName'] as String?,
-  );
+Map<String, dynamic> _decodeJwt(String token) {
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return {};
+    var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+    switch (payload.length % 4) {
+      case 2:
+        payload += '==';
+      case 3:
+        payload += '=';
+    }
+    return jsonDecode(utf8.decode(base64.decode(payload)))
+        as Map<String, dynamic>;
+  } catch (_) {
+    return {};
+  }
 }
 
-/// Result of `POST /auth/signup` and `POST /auth/login`.
+class ReferralResult {
+  const ReferralResult({required this.valid, this.memberName, this.email});
+  final bool valid;
+  final String? memberName;
+  final String? email;
+
+  factory ReferralResult.fromJson(Map<String, dynamic> json) {
+    if (json.containsKey('error')) {
+      return const ReferralResult(valid: false);
+    }
+    final email = json['email'] as String?;
+    return ReferralResult(valid: email != null && email.isNotEmpty, email: email);
+  }
+}
+
 class AuthResult {
   const AuthResult({
     required this.userId,
-    required this.token,
+    this.token = '',
+    this.refreshToken = '',
     this.email,
     this.gender,
+    this.name,
+    this.role,
   });
   final String userId;
-  final String token;
+  final String token;         // access_token
+  final String refreshToken;  // refresh_token
   final String? email;
-
-  /// The member's gender as recorded by the backend (e.g. `female` / `male`).
-  /// Drives the female-only onboarding step / dynamic step count.
   final String? gender;
+  final String? name;
+  final String? role;
 
-  factory AuthResult.fromJson(Map<String, dynamic> json) => AuthResult(
-    userId: json['userId'] as String? ?? '',
-    token: json['token'] as String? ?? '',
-    email: json['email'] as String?,
-    gender: json['gender'] as String?,
-  );
+  factory AuthResult.fromJson(Map<String, dynamic> json) {
+    final accessToken =
+        json['access_token'] as String? ?? json['token'] as String? ?? '';
+    final refreshToken = json['refresh_token'] as String? ?? '';
+    final jwt = accessToken.isNotEmpty ? _decodeJwt(accessToken) : <String, dynamic>{};
+
+    return AuthResult(
+      userId: jwt['sub'] as String? ??
+          json['id'] as String? ??
+          json['userId'] as String? ??
+          '',
+      token: accessToken,
+      refreshToken: refreshToken,
+      email: jwt['email'] as String? ?? json['email'] as String?,
+      gender: json['gender'] as String?,
+      name: json['name'] as String?,
+      role: jwt['role'] as String? ?? json['role'] as String?,
+    );
+  }
 }
 
 /// Result of `GET /onboarding` — the profile plus the saved answer draft.

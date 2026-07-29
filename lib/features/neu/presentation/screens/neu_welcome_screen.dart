@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../../core/session/app_error_handler.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
@@ -22,7 +23,7 @@ class NeuWelcomeScreen extends ConsumerStatefulWidget {
 class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
   final _codeController = TextEditingController();
   _CodeState _codeState = _CodeState.idle;
-  String _verifiedName = '';
+  String _verifiedEmail = '';
   bool _isLoading = false;
   String? _codeError;
 
@@ -59,7 +60,7 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
         _isLoading = false;
         if (result.valid) {
           _codeState = _CodeState.verified;
-          _verifiedName = result.memberName ?? '';
+          _verifiedEmail = result.email ?? '';
         } else {
           _codeState = _CodeState.idle;
         }
@@ -73,10 +74,10 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not verify code: $e')));
+      setState(() {
+        _isLoading = false;
+        _codeError = AppErrorHandler.instance.handle(e) ?? 'Code not recognised';
+      });
     }
   }
 
@@ -87,8 +88,10 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            NeuCreatePasswordScreen(referralCode: _codeController.text.trim()),
+        builder: (_) => NeuCreatePasswordScreen(
+          referralCode: _codeController.text.trim(),
+          initialEmail: _verifiedEmail,
+        ),
       ),
     );
   }
@@ -157,6 +160,7 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
                     onSubmitted: (_) => _verifyCode(),
                     errorText: _codeError,
                     dark: true,
+                    maxLength: 8,
                     suffixIcon: _codeState == _CodeState.verified
                         ? Container(
                             margin: const EdgeInsets.all(10),
@@ -185,12 +189,15 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Code verified - welcome, $_verifiedName.',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: NeuColors.success,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Text(
+                            'Code verified — continue as $_verifiedEmail',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: NeuColors.success,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            softWrap: true,
                           ),
                         ),
                       ],

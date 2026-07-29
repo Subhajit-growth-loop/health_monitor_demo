@@ -1,15 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../settings/app_settings.dart';
+import '../session/token_manager.dart';
+import 'app_urls.dart';
 import 'mock_api_interceptor.dart';
 
-/// Flip to `false` and set [kApiBaseUrl] to the real backend to go live. When
-/// `true`, [MockApiInterceptor] serves every request in-app (no network).
-const bool kUseMockApi = true;
-
-/// TODO: replace with the real backend base URL when [kUseMockApi] is false.
-const String kApiBaseUrl = 'https://api.neuhealth.example/v1';
+/// Flip to `true` to run entirely in-app with canned responses (no network).
+const bool kUseMockApi = false;
 
 /// A configured [Dio] shared across the auth + onboarding data sources.
 ///
@@ -21,7 +18,7 @@ const String kApiBaseUrl = 'https://api.neuhealth.example/v1';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: kApiBaseUrl,
+      baseUrl: AppUrls.baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       contentType: 'application/json',
@@ -31,10 +28,8 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
-        final token = ref
-            .read(sharedPreferencesProvider)
-            .getString('neu_token');
-        if (token != null && token.isNotEmpty) {
+        final token = TokenManager.instance.token;
+        if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);

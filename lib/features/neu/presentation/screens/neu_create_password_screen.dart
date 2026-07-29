@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../../core/session/app_error_handler.dart';
+import '../../../../../core/session/current_user.dart';
+import '../../../../../core/session/token_manager.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
@@ -97,19 +100,33 @@ class _NeuCreatePasswordScreenState
 
     setState(() => _isLoading = true);
     try {
-      final auth = await ref
-          .read(onboardingRepositoryProvider)
-          .signup(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-            referralCode: widget.referralCode,
-          );
+      final repo = ref.read(onboardingRepositoryProvider);
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
 
-      final prefs = ref.read(sharedPreferencesProvider);
-      await prefs.setString('neu_email', _emailController.text.trim());
-      await prefs.setString('neu_token', auth.token);
-      await prefs.setString('neu_gender', auth.gender ?? '');
-      await prefs.setBool('neu_onboarding_complete', false);
+      // Step 1: Register the account
+      final registered = await repo.signup(
+        email: email,
+        password: password,
+        referralCode: widget.referralCode,
+        confirmPassword: _confirmController.text,
+      );
+
+      // Step 2: Login to get an auth token (register response has no token)
+      final auth = await repo.login(email: email, password: password);
+
+      await TokenManager.instance.setTokens(
+        accessToken: auth.token.isNotEmpty ? auth.token : registered.userId,
+        refreshToken: auth.refreshToken,
+      );
+      await CurrentUser.instance.set(
+        id: auth.userId.isNotEmpty ? auth.userId : registered.userId,
+        email: email,
+        name: auth.name ?? registered.name ?? '',
+        role: auth.role ?? registered.role ?? '',
+        gender: auth.gender ?? '',
+      );
+      await ref.read(sharedPreferencesProvider).setBool('neu_onboarding_complete', false);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -117,9 +134,9 @@ class _NeuCreatePasswordScreenState
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sign up failed: $e')));
+        final msg = AppErrorHandler.instance.handle(e) ?? 'Sign up failed';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -56,7 +56,7 @@ class OnboardingState {
   /// The steps that apply to this user (menstrual step only for female).
   List<OnboardingStep> get steps => [
     for (final s in OnboardingStep.values)
-      if (s != OnboardingStep.cycle || profile.isFemale) s,
+      if ((s != OnboardingStep.cycle && s != OnboardingStep.symptoms) || profile.isFemale) s,
   ];
 
   int get totalSteps => steps.length;
@@ -84,15 +84,26 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
 
   @override
   Future<OnboardingState> build() async {
-    final snapshot = await _repo.loadOnboarding();
+    // Run both fetches concurrently — neither depends on the other.
+    final results = await Future.wait([
+      _repo.loadOnboarding(),
+      _repo.loadPatientDetails(),
+    ]);
 
-    // Gender captured from the auth API (signup/login) is authoritative for the
-    // dynamic step count; fall back to the profile the onboarding API returned.
+    final snapshot = results[0] as OnboardingSnapshot;
+    final patientDetails = results[1] as UserProfile?;
+
+    // Patient-details API is authoritative for the medical profile fields;
+    // fall back to whatever the onboarding snapshot returned.
+    var profile = patientDetails ?? snapshot.profile;
+
+    // Gender from auth (signup/login) overrides everything — it drives the
+    // dynamic step count (female-only cycle/symptoms steps).
     final storedGender =
         ref.read(sharedPreferencesProvider).getString('neu_gender');
-    final profile = (storedGender != null && storedGender.isNotEmpty)
-        ? snapshot.profile.copyWith(gender: storedGender)
-        : snapshot.profile;
+    if (storedGender != null && storedGender.isNotEmpty) {
+      profile = profile.copyWith(gender: storedGender);
+    }
 
     return OnboardingState(
       profile: profile,
@@ -110,10 +121,28 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
     state = AsyncData(_s.copyWith(draft: draft));
   }
 
-  /// Inline profile edit — persists immediately via `PATCH /profile`.
-  Future<void> updateProfile(Map<String, dynamic> changes) async {
+  /// Local-only profile field edit — merges [changes] into the current profile
+  /// without any API call. Persisted on [savePatientProfile].
+  void editProfile(Map<String, dynamic> changes) {
     if (!state.hasValue) return;
-    final updated = await _repo.updateProfile(changes);
+    final p = _s.profile;
+    final updated = p.copyWith(
+      fullName: changes['fullName'] as String? ?? p.fullName,
+      dateOfBirth: changes['dateOfBirth'] as String? ?? p.dateOfBirth,
+      gender: changes['gender'] as String? ?? p.gender,
+      primaryDiagnosis:
+          changes['primaryDiagnosis'] as String? ?? p.primaryDiagnosis,
+      diagnosedDate: changes['diagnosedDate'] as String? ?? p.diagnosedDate,
+      otherConditions:
+          (changes['otherConditions'] as List?)?.cast<String>() ??
+          p.otherConditions,
+      currentMedications:
+          (changes['currentMedications'] as List?)?.cast<String>() ??
+          p.currentMedications,
+      currentSupplements:
+          (changes['currentSupplements'] as List?)?.cast<String>() ??
+          p.currentSupplements,
+    );
     state = AsyncData(_s.copyWith(profile: updated));
   }
 
@@ -132,6 +161,21 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
   void back() {
     if (!state.hasValue || _s.isFirst) return;
     state = AsyncData(_s.copyWith(stepIndex: _s.stepIndex - 1));
+  }
+
+  /// POST /patient/profile — saves the verified medical profile (step 1).
+  Future<void> savePatientProfile() async {
+    if (!state.hasValue) return;
+    final p = _s.profile;
+    await _repo.savePatientProfile({
+      'date_of_birth': p.dateOfBirth,
+      'gender': p.gender,
+      'primary_diagnosis': p.primaryDiagnosis,
+      'diagnosed_at': p.diagnosedDate,
+      'other_conditions': p.otherConditions,
+      'current_medications': p.currentMedications,
+      'current_supplements': p.currentSupplements,
+    });
   }
 
   /// Finalize: persist the last step's answers, then `POST /onboarding/complete`.

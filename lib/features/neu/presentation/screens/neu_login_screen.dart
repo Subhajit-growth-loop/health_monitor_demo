@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../../core/session/app_error_handler.dart';
+import '../../../../../core/session/current_user.dart';
+import '../../../../../core/session/token_manager.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
@@ -62,19 +65,25 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final email = _emailController.text.trim();
       final auth = await ref
           .read(onboardingRepositoryProvider)
-          .login(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+          .login(email: email, password: _passwordController.text);
 
-      final prefs = ref.read(sharedPreferencesProvider);
-      await prefs.setString('neu_email', _emailController.text.trim());
-      await prefs.setString('neu_token', auth.token);
-      await prefs.setString('neu_gender', auth.gender ?? '');
-      // A returning user has already onboarded.
-      await prefs.setBool('neu_onboarding_complete', true);
+      await TokenManager.instance.setTokens(
+        accessToken: auth.token,
+        refreshToken: auth.refreshToken,
+      );
+      await CurrentUser.instance.set(
+        id: auth.userId,
+        email: auth.email ?? email,
+        name: auth.name ?? '',
+        role: auth.role ?? '',
+        gender: auth.gender ?? '',
+      );
+      await ref
+          .read(sharedPreferencesProvider)
+          .setBool('neu_onboarding_complete', true);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -82,9 +91,9 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Login failed: $e')));
+        final msg = AppErrorHandler.instance.handle(e) ?? 'Login failed';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

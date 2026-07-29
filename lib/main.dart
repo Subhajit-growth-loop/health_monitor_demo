@@ -7,9 +7,13 @@ import 'app.dart';
 import 'core/background/health_background_service.dart';
 import 'core/database/app_database.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/session/app_error_handler.dart';
+import 'core/session/current_user.dart';
+import 'core/session/token_manager.dart';
 import 'core/settings/app_settings.dart';
 import 'features/health/presentation/providers/health_providers.dart';
 import 'features/health/presentation/screens/sync_settings_screen.dart';
+import 'features/neu/presentation/screens/neu_login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +22,20 @@ Future<void> main() async {
   // synchronously to the rest of the app as the single source of truth.
   final db = await openAppDatabase();
   final prefs = await SharedPreferences.getInstance();
+
+  // Initialise singletons that need SharedPreferences
+  TokenManager.instance.init(prefs);
+  CurrentUser.instance.init(prefs);
+
+  // When any API call returns 401, clear the session and push to login.
+  AppErrorHandler.instance.onSessionExpired = () async {
+    await TokenManager.instance.clearToken();
+    await CurrentUser.instance.clear();
+    HealthMonitorApp.navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const NeuLoginScreen()),
+      (_) => false,
+    );
+  };
 
   // Initialize local notification channels and permissions. Route taps (e.g.
   // the 48h catch-up prompt) to the manual sync page.

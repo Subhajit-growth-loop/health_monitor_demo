@@ -70,25 +70,35 @@ class MockApiInterceptor extends Interceptor {
     Map<String, dynamic>? payload;
 
     switch ((method, path)) {
-      case ('POST', '/auth/referral/verify'):
-        final code = (body['code'] as String? ?? '').trim();
-        payload = code.isEmpty
-            ? {'valid': false, 'memberName': null}
-            : {'valid': true, 'memberName': 'Harry'};
+      case ('GET', '/users/reference-email'):
+        final code = (options.queryParameters['ref_number'] as String? ?? '').trim();
+        if (code.isEmpty) {
+          handler.reject(DioException(
+            requestOptions: options,
+            response: Response(requestOptions: options, statusCode: 404, data: {
+              'error': {'code': 'not_found', 'message': 'Reference was not found.'},
+            }),
+            type: DioExceptionType.badResponse,
+          ));
+          return;
+        }
+        payload = {'email': 'mock@neuhealth.com'};
 
-      case ('POST', '/auth/signup'):
+      case ('POST', '/patient/register'):
         payload = {
-          'userId': 'usr_mock_001',
-          'token': 'mock_token_signup',
+          'id': 'usr_mock_001',
+          'name': 'Harry',
           'email': body['email'],
+          'role': 'patient',
           'gender': _profile['gender'],
         };
 
       case ('POST', '/auth/login'):
         payload = {
-          'userId': 'usr_mock_001',
+          'id': 'usr_mock_001',
           'token': 'mock_token_login',
           'email': body['email'],
+          'role': 'patient',
           'gender': _profile['gender'],
         };
 

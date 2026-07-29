@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../../core/session/app_error_handler.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
 import '../../../onboarding/domain/entities/onboarding_draft.dart';
 import '../../../onboarding/domain/entities/onboarding_results.dart';
+import '../../../onboarding/domain/entities/user_profile.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 import '../../../health/presentation/screens/dashboard_screen.dart';
 import '../../../onboarding/domain/entities/health_source.dart';
@@ -96,6 +98,40 @@ const _firstActions = [
   ),
 ];
 
+const _primaryDiagnosisOptions = [
+  ('masld', 'MASLD'), ('mash', 'MASH'), ('prediabetes', 'Prediabetes'),
+  ('type_2_diabetes', 'Type 2 Diabetes'), ('obesity', 'Obesity'),
+  ('metabolic_syndrome', 'Metabolic Syndrome'), ('pcos', 'PCOS'),
+  ('hypertension', 'Hypertension'), ('high_cholesterol', 'High Cholesterol'),
+  ('none', 'None of the above'),
+];
+
+const _otherConditionsOptions = [
+  ('prediabetes', 'Prediabetes'), ('type_2_diabetes', 'Type 2 Diabetes'),
+  ('hypertension', 'Hypertension'), ('high_cholesterol', 'High Cholesterol'),
+  ('obesity', 'Obesity'), ('pcos', 'PCOS'), ('sleep_apnea', 'Sleep Apnea'),
+  ('hypothyroidism', 'Hypothyroidism'), ('depression', 'Depression'),
+  ('anxiety', 'Anxiety'), ('none', 'None'),
+];
+
+const _medicationsOptions = [
+  ('metformin', 'Metformin'), ('ozempic', 'Ozempic (Semaglutide)'),
+  ('mounjaro', 'Mounjaro (Tirzepatide)'), ('wegovy', 'Wegovy'),
+  ('jardiance', 'Jardiance'), ('insulin', 'Insulin'), ('statin', 'Statin'),
+  ('blood_pressure_medication', 'Blood Pressure Medication'),
+  ('none', 'None'), ('other', 'Other'),
+];
+
+const _supplementsOptions = [
+  ('vitamin_d', 'Vitamin D'), ('vitamin_b12', 'Vitamin B12'),
+  ('omega_3', 'Omega-3'), ('magnesium', 'Magnesium'),
+  ('probiotics', 'Probiotics'), ('milk_thistle', 'Milk Thistle'),
+  ('turmeric', 'Turmeric / Curcumin'), ('multivitamin', 'Multivitamin'),
+  ('none', 'None'), ('other', 'Other'),
+];
+
+const _genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
+
 /// Maps raw platform health-data type strings to the short display label shown
 /// in brackets under each connect-step category header.
 const _kRawTypeLabel = <String, String>{
@@ -143,16 +179,45 @@ class _NeuOnboardingFlowScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(onboardingControllerProvider, (_, next) {
+      if (next.hasError && mounted) {
+        final msg = AppErrorHandler.instance.handle(next.error!) ??
+            'Could not load onboarding';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
+      }
+    });
+
     final async = ref.watch(onboardingControllerProvider);
     return async.when(
       loading: () => const _CenteredMessage(
         child: CircularProgressIndicator(color: NeuColors.primary),
       ),
       error: (e, _) => _CenteredMessage(
-        child: Text(
-          'Could not load onboarding.\n$e',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: NeuColors.darkTextMuted),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded,
+                color: NeuColors.darkTextMuted, size: 48),
+            SizedBox(height: 16.h),
+            Text(
+              'Could not load your onboarding data.\nCheck your connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14.sp, color: NeuColors.darkTextMuted, height: 1.5),
+            ),
+            SizedBox(height: 24.h),
+            FilledButton(
+              onPressed: () =>
+                  ref.invalidate(onboardingControllerProvider),
+              style: FilledButton.styleFrom(
+                backgroundColor: NeuColors.primary,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r)),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       ),
       data: _buildStep,
@@ -239,6 +304,14 @@ class _NeuOnboardingFlowScreenState
     final d = state.draft;
     switch (state.currentStep) {
       case OnboardingStep.verifyInfo:
+        final p = state.profile;
+        return p.dateOfBirth.isNotEmpty &&
+            p.gender.isNotEmpty &&
+            p.primaryDiagnosis.isNotEmpty &&
+            p.diagnosedDate.isNotEmpty &&
+            p.otherConditions.isNotEmpty &&
+            p.currentMedications.isNotEmpty &&
+            p.currentSupplements.isNotEmpty;
       case OnboardingStep.feeling: // sliders always carry a value
       case OnboardingStep.letter: // read-only
         return true;
@@ -275,14 +348,17 @@ class _NeuOnboardingFlowScreenState
             builder: (_) => NeuOnboardingCompleteScreen(result: result),
           ),
         );
+      } else if (state.currentStep == OnboardingStep.verifyInfo) {
+        await ctrl.savePatientProfile();
+        await ctrl.saveAndNext();
       } else {
         await ctrl.saveAndNext();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Something went wrong: $e')));
+        final msg = AppErrorHandler.instance.handle(e) ?? 'Something went wrong';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -294,69 +370,156 @@ class _NeuOnboardingFlowScreenState
 
 class _VerifyInfoStep extends ConsumerStatefulWidget {
   const _VerifyInfoStep();
-
   @override
   ConsumerState<_VerifyInfoStep> createState() => _VerifyInfoStepState();
 }
 
 class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
-  /// The profile field currently being edited (null = none).
   String? _editingKey;
-  final _controller = TextEditingController();
+  final _textCtrl = TextEditingController();
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _textCtrl.dispose(); super.dispose(); }
 
-  void _startEdit(String key, String currentValue) {
-    setState(() {
-      _editingKey = key;
-      _controller.text = currentValue;
-    });
-  }
-
-  Future<void> _save(String key) async {
-    await ref.read(onboardingControllerProvider.notifier).updateProfile({
-      key: _controller.text.trim(),
-    });
+  void _saveText(String key) {
+    ref.read(onboardingControllerProvider.notifier).editProfile({key: _textCtrl.text.trim()});
     if (mounted) setState(() => _editingKey = null);
+  }
+
+  Future<void> _openPicker(BuildContext context, UserProfile profile, String key) async {
+    switch (key) {
+      case 'dateOfBirth':
+        final initial = DateTime.tryParse(profile.dateOfBirth) ?? DateTime(1990);
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: initial,
+          firstDate: DateTime(1920),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null && mounted) {
+          ref.read(onboardingControllerProvider.notifier).editProfile({
+            'dateOfBirth': '${picked.year}-${picked.month.toString().padLeft(2,'0')}-${picked.day.toString().padLeft(2,'0')}',
+          });
+        }
+      case 'diagnosedDate':
+        final initial = DateTime.tryParse(profile.diagnosedDate) ?? DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: initial,
+          firstDate: DateTime(1980),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null && mounted) {
+          ref.read(onboardingControllerProvider.notifier).editProfile({
+            'diagnosedDate': '${picked.year}-${picked.month.toString().padLeft(2,'0')}-${picked.day.toString().padLeft(2,'0')}',
+          });
+        }
+      case 'gender':
+        if (!mounted) return;
+        await _showSingleSelectSheet(
+          context: context,
+          title: 'Gender',
+          options: _genderOptions.map((g) => (g.toLowerCase().replaceAll(' ', '_'), g)).toList(),
+          selected: profile.gender,
+          onSelected: (v) => ref.read(onboardingControllerProvider.notifier).editProfile({'gender': v}),
+        );
+      case 'primaryDiagnosis':
+        if (!mounted) return;
+        await _showSingleSelectSheet(
+          context: context,
+          title: 'Primary Diagnosis',
+          options: _primaryDiagnosisOptions.toList(),
+          selected: profile.primaryDiagnosis,
+          onSelected: (v) => ref.read(onboardingControllerProvider.notifier).editProfile({'primaryDiagnosis': v}),
+        );
+      case 'otherConditions':
+        if (!mounted) return;
+        await _showMultiSelectSheet(
+          context: context,
+          title: 'Other Conditions',
+          options: _otherConditionsOptions.toList(),
+          selected: profile.otherConditions,
+          onConfirm: (values) => ref.read(onboardingControllerProvider.notifier).editProfile({'otherConditions': values}),
+        );
+      case 'currentMedications':
+        if (!mounted) return;
+        await _showMultiSelectSheet(
+          context: context,
+          title: 'Current Medications',
+          options: _medicationsOptions.toList(),
+          selected: profile.currentMedications,
+          onConfirm: (values) => ref.read(onboardingControllerProvider.notifier).editProfile({'currentMedications': values}),
+        );
+      case 'currentSupplements':
+        if (!mounted) return;
+        await _showMultiSelectSheet(
+          context: context,
+          title: 'Current Supplements',
+          options: _supplementsOptions.toList(),
+          selected: profile.currentSupplements,
+          onConfirm: (values) => ref.read(onboardingControllerProvider.notifier).editProfile({'currentSupplements': values}),
+        );
+    }
+  }
+
+  Future<void> _showSingleSelectSheet({
+    required BuildContext context,
+    required String title,
+    required List<(String, String)> options,
+    required String selected,
+    required void Function(String) onSelected,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: NeuColors.darkCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (_) => _SingleSelectSheet(title: title, options: options, selected: selected, onSelected: onSelected),
+    );
+  }
+
+  Future<void> _showMultiSelectSheet({
+    required BuildContext context,
+    required String title,
+    required List<(String, String)> options,
+    required List<String> selected,
+    required void Function(List<String>) onConfirm,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: NeuColors.darkCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (_) => _MultiSelectSheet(title: title, options: options, selected: selected, onConfirm: onConfirm),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(onboardingControllerProvider).value!.profile;
-    final rows = <({String key, String label, String value})>[
-      (key: 'fullName', label: 'Full Name', value: profile.fullName),
-      (
-        key: 'dateOfBirth',
-        label: 'Date of birth',
-        value: _prettyDob(profile.dateOfBirth),
-      ),
-      (key: 'gender', label: 'Gender', value: _titleCase(profile.gender)),
-      (
-        key: 'primaryDiagnosis',
-        label: 'Primary diagnosis',
-        value: profile.primaryDiagnosis,
-      ),
-      (
-        key: 'diagnosedDate',
-        label: 'Diagnosed',
-        value: _prettyMonth(profile.diagnosedDate),
-      ),
-      (
-        key: 'otherConditions',
-        label: 'Other conditions',
-        value: profile.otherConditions,
-      ),
-      (
-        key: 'currentMedications',
-        label: 'Current medications',
-        value: profile.currentMedications.isEmpty
-            ? '—'
-            : profile.currentMedications,
-      ),
+
+    String labelOf(List<(String, String)> options, String value) {
+      for (final (v, l) in options) { if (v == value) return l; }
+      return value;
+    }
+
+    String labelsOf(List<(String, String)> options, List<String> values) {
+      final labels = values.map((v) {
+        for (final (ov, ol) in options) { if (ov == v) return ol; }
+        return v;
+      });
+      return labels.join(', ').isEmpty ? '—' : labels.join(', ');
+    }
+
+    final rows = <({String key, String label, String display, bool isText})>[
+      (key: 'fullName', label: 'Full Name', display: profile.fullName.isEmpty ? '—' : profile.fullName, isText: true),
+      (key: 'dateOfBirth', label: 'Date of Birth', display: _prettyDob(profile.dateOfBirth).isEmpty ? '—' : _prettyDob(profile.dateOfBirth), isText: false),
+      (key: 'gender', label: 'Gender', display: profile.gender.isEmpty ? '—' : _titleCase(profile.gender), isText: false),
+      (key: 'primaryDiagnosis', label: 'Primary Diagnosis', display: profile.primaryDiagnosis.isEmpty ? '—' : labelOf(_primaryDiagnosisOptions.toList(), profile.primaryDiagnosis), isText: false),
+      (key: 'diagnosedDate', label: 'Diagnosed', display: _prettyDob(profile.diagnosedDate).isEmpty ? '—' : _prettyDob(profile.diagnosedDate), isText: false),
+      (key: 'otherConditions', label: 'Other Conditions', display: profile.otherConditions.isEmpty ? '—' : labelsOf(_otherConditionsOptions.toList(), profile.otherConditions), isText: false),
+      (key: 'currentMedications', label: 'Medications', display: profile.currentMedications.isEmpty ? '—' : labelsOf(_medicationsOptions.toList(), profile.currentMedications), isText: false),
+      (key: 'currentSupplements', label: 'Supplements', display: profile.currentSupplements.isEmpty ? '—' : labelsOf(_supplementsOptions.toList(), profile.currentSupplements), isText: false),
     ];
 
     return Container(
@@ -368,18 +531,50 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
       child: Column(
         children: [
           for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 1,
-                color: NeuColors.darkBorder.withValues(alpha: 0.6),
+            if (i > 0) Divider(height: 1, color: NeuColors.darkBorder.withValues(alpha: 0.6)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(rows[i].label, style: TextStyle(fontSize: 12.sp, color: NeuColors.darkTextMuted)),
+                        SizedBox(height: 4.h),
+                        if (_editingKey == rows[i].key && rows[i].isText)
+                          TextField(
+                            controller: _textCtrl,
+                            autofocus: true,
+                            style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: Colors.white),
+                            decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 4), border: InputBorder.none),
+                            onSubmitted: (_) => _saveText(rows[i].key),
+                          )
+                        else
+                          Text(rows[i].display, style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  GestureDetector(
+                    onTap: () {
+                      if (rows[i].isText) {
+                        if (_editingKey == rows[i].key) {
+                          _saveText(rows[i].key);
+                        } else {
+                          setState(() { _editingKey = rows[i].key; _textCtrl.text = rows[i].display == '—' ? '' : rows[i].display; });
+                        }
+                      } else {
+                        _openPicker(context, profile, rows[i].key);
+                      }
+                    },
+                    child: _editingKey == rows[i].key && rows[i].isText
+                        ? Icon(Icons.check_rounded, color: NeuColors.primary, size: 22.r)
+                        : Icon(Icons.edit_outlined, color: NeuColors.darkTextMuted, size: 20.r),
+                  ),
+                ],
               ),
-            _InfoRow(
-              label: rows[i].label,
-              value: rows[i].value,
-              editing: _editingKey == rows[i].key,
-              controller: _controller,
-              onEdit: () => _startEdit(rows[i].key, rows[i].value),
-              onSave: () => _save(rows[i].key),
             ),
           ],
         ],
@@ -388,82 +583,182 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    required this.editing,
-    required this.controller,
-    required this.onEdit,
-    required this.onSave,
-  });
+class _SingleSelectSheet extends StatefulWidget {
+  const _SingleSelectSheet({required this.title, required this.options, required this.selected, required this.onSelected});
+  final String title;
+  final List<(String, String)> options;
+  final String selected;
+  final void Function(String) onSelected;
 
-  final String label;
-  final String value;
-  final bool editing;
-  final TextEditingController controller;
-  final VoidCallback onEdit;
-  final VoidCallback onSave;
+  @override
+  State<_SingleSelectSheet> createState() => _SingleSelectSheetState();
+}
+
+class _SingleSelectSheetState extends State<_SingleSelectSheet> {
+  late String _current;
+
+  @override
+  void initState() { super.initState(); _current = widget.selected; }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12.5.sp,
-                    color: NeuColors.darkTextMuted,
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+            SizedBox(height: 16.h),
+            for (final (value, label) in widget.options) ...[
+              GestureDetector(
+                onTap: () {
+                  setState(() => _current = value);
+                  widget.onSelected(value);
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                  margin: EdgeInsets.only(bottom: 8.h),
+                  decoration: BoxDecoration(
+                    color: _current == value ? NeuColors.primary.withValues(alpha: 0.15) : NeuColors.darkBackground,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: _current == value ? NeuColors.primary : NeuColors.darkBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(label, style: TextStyle(fontSize: 14.sp, color: Colors.white, fontWeight: FontWeight.w500))),
+                      if (_current == value) Icon(Icons.check_rounded, color: NeuColors.primary, size: 18.r),
+                    ],
                   ),
                 ),
-                SizedBox(height: 4.h),
-                if (editing)
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    style: TextStyle(
-                      fontSize: 15.5.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MultiSelectSheet extends StatefulWidget {
+  const _MultiSelectSheet({required this.title, required this.options, required this.selected, required this.onConfirm});
+  final String title;
+  final List<(String, String)> options;
+  final List<String> selected;
+  final void Function(List<String>) onConfirm;
+
+  @override
+  State<_MultiSelectSheet> createState() => _MultiSelectSheetState();
+}
+
+class _MultiSelectSheetState extends State<_MultiSelectSheet> {
+  late List<String> _current;
+  final _otherCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _current = List.from(widget.selected);
+    final optionValues = widget.options.map((o) => o.$1).toSet();
+    final custom = _current.where((v) => !optionValues.contains(v)).firstOrNull;
+    if (custom != null) _otherCtrl.text = custom;
+  }
+
+  @override
+  void dispose() { _otherCtrl.dispose(); super.dispose(); }
+
+  void _toggle(String value) {
+    setState(() {
+      if (_current.contains(value)) {
+        _current.remove(value);
+      } else {
+        _current.add(value);
+      }
+    });
+  }
+
+  void _confirm() {
+    var values = List<String>.from(_current);
+    if (values.contains('other') && _otherCtrl.text.trim().isNotEmpty) {
+      values.remove('other');
+      values.add(_otherCtrl.text.trim());
+    }
+    widget.onConfirm(values);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showOtherInput = _current.contains('other');
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+            SizedBox(height: 16.h),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Wrap(
+                      spacing: 10.w,
+                      runSpacing: 10.h,
+                      children: [
+                        for (final (value, label) in widget.options)
+                          GestureDetector(
+                            onTap: () => _toggle(value),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                              decoration: BoxDecoration(
+                                color: _current.contains(value) ? NeuColors.primary.withValues(alpha: 0.15) : NeuColors.darkBackground,
+                                borderRadius: BorderRadius.circular(10.r),
+                                border: Border.all(color: _current.contains(value) ? NeuColors.primary : NeuColors.darkBorder),
+                              ),
+                              child: Text(label, style: TextStyle(fontSize: 13.sp, color: _current.contains(value) ? NeuColors.primary : Colors.white, fontWeight: _current.contains(value) ? FontWeight.w600 : FontWeight.w400)),
+                            ),
+                          ),
+                      ],
                     ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 4),
-                    ),
-                    onSubmitted: (_) => onSave(),
-                  )
-                else
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 15.5.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          GestureDetector(
-            onTap: editing ? onSave : onEdit,
-            child: Text(
-              editing ? 'Save' : 'Change',
-              style: TextStyle(
-                fontSize: 14.sp,
-                color: NeuColors.primary,
-                fontWeight: FontWeight.w700,
+                    if (showOtherInput) ...[
+                      SizedBox(height: 14.h),
+                      TextField(
+                        controller: _otherCtrl,
+                        autofocus: true,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Describe...',
+                          hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
+                          filled: true,
+                          fillColor: NeuColors.darkBackground,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: NeuColors.darkBorder)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: NeuColors.darkBorder)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: NeuColors.primary)),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            SizedBox(height: 16.h),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _confirm,
+                style: FilledButton.styleFrom(backgroundColor: NeuColors.primary, padding: EdgeInsets.symmetric(vertical: 14.h), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r))),
+                child: Text('Confirm', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -471,24 +766,119 @@ class _InfoRow extends StatelessWidget {
 
 // ── Step 2: Motivation + support ─────────────────────────────────────────────
 
-class _MotivationStep extends StatelessWidget {
+class _MotivationStep extends StatefulWidget {
   const _MotivationStep({required this.draft, required this.ctrl});
   final OnboardingDraft draft;
   final OnboardingController ctrl;
+
+  @override
+  State<_MotivationStep> createState() => _MotivationStepState();
+}
+
+class _MotivationStepState extends State<_MotivationStep> {
+  late final TextEditingController _otherCtrl;
+
+  static final _definedValues = _motivations.map((m) => m.$1).toSet();
+
+  @override
+  void initState() {
+    super.initState();
+    final custom = widget.draft.motivations
+        .where((v) => !_definedValues.contains(v))
+        .firstOrNull;
+    _otherCtrl = TextEditingController(text: custom ?? '');
+  }
+
+  @override
+  void dispose() {
+    _otherCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _otherSelected =>
+      widget.draft.motivations.contains('other') ||
+      widget.draft.motivations.any((v) => !_definedValues.contains(v));
+
+  void _toggleMotivation(String value) {
+    if (value == 'other') {
+      if (_otherSelected) {
+        final updated = widget.draft.motivations
+            .where((v) => _definedValues.contains(v) && v != 'other')
+            .toList();
+        widget.ctrl.editDraft(widget.draft.copyWith(motivations: updated));
+        setState(() => _otherCtrl.clear());
+      } else {
+        widget.ctrl.editDraft(widget.draft.copyWith(
+          motivations: [...widget.draft.motivations, 'other'],
+        ));
+      }
+    } else {
+      widget.ctrl.editDraft(
+        widget.draft.copyWith(
+          motivations: _toggle(widget.draft.motivations, value),
+        ),
+      );
+    }
+  }
+
+  void _onOtherTextChanged(String text) {
+    final base = widget.draft.motivations
+        .where((v) => _definedValues.contains(v) && v != 'other')
+        .toList();
+    widget.ctrl.editDraft(widget.draft.copyWith(
+      motivations: [...base, text.trim().isNotEmpty ? text.trim() : 'other'],
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (value, label) in _motivations)
+        for (final (value, label) in _motivations) ...[
           NeuCheckboxTile(
             label: label,
-            selected: draft.motivations.contains(value),
-            onChanged: (_) => ctrl.editDraft(
-              draft.copyWith(motivations: _toggle(draft.motivations, value)),
-            ),
+            selected: value == 'other'
+                ? _otherSelected
+                : widget.draft.motivations.contains(value),
+            onChanged: (_) => _toggleMotivation(value),
           ),
+          if (value == 'other' && _otherSelected) ...[
+            SizedBox(height: 10.h),
+            Padding(
+              padding: EdgeInsets.only(left: 16.w, right: 4.w, bottom: 4.h),
+              child: TextField(
+                controller: _otherCtrl,
+                autofocus: true,
+                onChanged: _onOtherTextChanged,
+                style: TextStyle(color: Colors.white, fontSize: 14.sp),
+                decoration: InputDecoration(
+                  hintText: 'Describe your reason…',
+                  hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
+                  filled: true,
+                  fillColor: NeuColors.darkBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    borderSide: const BorderSide(color: NeuColors.darkBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    borderSide: const BorderSide(color: NeuColors.darkBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    borderSide: const BorderSide(color: NeuColors.primary),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 12.h,
+                  ),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ],
+        ],
         SizedBox(height: 24.h),
         Text(
           'What kind of support are you hoping for?',
@@ -506,10 +896,10 @@ class _MotivationStep extends StatelessWidget {
             for (final (value, label) in _supportTypes)
               NeuChoiceChip(
                 label: label,
-                selected: draft.supportTypes.contains(value),
-                onTap: () => ctrl.editDraft(
-                  draft.copyWith(
-                    supportTypes: _toggle(draft.supportTypes, value),
+                selected: widget.draft.supportTypes.contains(value),
+                onTap: () => widget.ctrl.editDraft(
+                  widget.draft.copyWith(
+                    supportTypes: _toggle(widget.draft.supportTypes, value),
                   ),
                 ),
               ),
@@ -1445,21 +1835,6 @@ const _monthsLong = [
   'November',
   'December',
 ];
-const _monthsShort = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
 /// `yyyy-MM-dd` → `14 March, 1974` (falls back to the raw string).
 String _prettyDob(String iso) {
   final d = DateTime.tryParse(iso);
@@ -1467,11 +1842,3 @@ String _prettyDob(String iso) {
   return '${d.day} ${_monthsLong[d.month - 1]}, ${d.year}';
 }
 
-/// `yyyy-MM` → `Jan, 2025` (falls back to the raw string).
-String _prettyMonth(String ym) {
-  final parts = ym.split('-');
-  if (parts.length < 2) return ym;
-  final m = int.tryParse(parts[1]);
-  if (m == null || m < 1 || m > 12) return ym;
-  return '${_monthsShort[m - 1]}, ${parts[0]}';
-}

@@ -169,21 +169,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       extendBody: true,
       backgroundColor:
           isDark ? NeuColors.darkBackground : NeuColors.screenBackground,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => setState(() => _tabIndex = 0),
-        backgroundColor: NeuColors.primary,
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: Image.asset(
-          'assets/icons/logo_white.png',
-          width: 28.r,
-          height: 28.r,
+      floatingActionButton: Container(
+        decoration: isDark
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: NeuColors.primary.withValues(alpha: 0.45),
+                    blurRadius: 20,
+                    spreadRadius: 4,
+                  ),
+                ],
+              )
+            : null,
+        child: FloatingActionButton(
+          onPressed: () => setState(() => _tabIndex = 0),
+          backgroundColor: NeuColors.primary,
+          elevation: isDark ? 0 : 4,
+          shape: const CircleBorder(),
+          child: Image.asset(
+            'assets/icons/logo_white.png',
+            width: 40.r,
+            height: 40.r,
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const _WaveNotchedShape(),
-        notchMargin: 8.0,
+        notchMargin: 6.0,
         color: isDark ? NeuColors.darkSurface : Colors.white,
         padding: EdgeInsets.zero,
         child: SizedBox(
@@ -199,7 +213,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 onTap: () => setState(() => _tabIndex = 0),
               ),
               _NavItem(
-                icon: Icons.auto_stories_rounded,
+                icon: Icons.school_rounded,
                 label: 'Learn',
                 selected: _tabIndex == 1,
                 unselectedColor: unselected,
@@ -207,7 +221,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               SizedBox(width: 60.w),
               _NavItem(
-                icon: Icons.bar_chart_rounded,
+                icon: Icons.monitor_heart_rounded,
                 label: 'Progress',
                 selected: _tabIndex == 2,
                 unselectedColor: unselected,
@@ -248,25 +262,28 @@ class _WaveNotchedShape extends NotchedShape {
       return Path()..addRect(host);
     }
 
-    final fabRadius = guest.width / 2 + 8.0;
+    final r = guest.width / 2 + 6.0; // notch radius (FAB radius + small gap)
     final cx = guest.center.dx;
+    final top = host.top;
+    final halfW = r * 2.4; // wave spread from center
+    final depth = r * 1.05; // how deep the trough goes
 
     return Path()
-      ..moveTo(host.left, host.top)
-      ..lineTo(cx - fabRadius * 2.0, host.top)
-      // Left shoulder
+      ..moveTo(host.left, top)
+      ..lineTo(cx - halfW, top)
+      // Left shoulder → trough
       ..cubicTo(
-        cx - fabRadius * 1.3, host.top,
-        cx - fabRadius, host.top + fabRadius * 0.8,
-        cx, host.top + fabRadius * 0.85,
+        cx - halfW * 0.5, top,
+        cx - r, top + depth,
+        cx, top + depth,
       )
-      // Right shoulder
+      // Trough → right shoulder
       ..cubicTo(
-        cx + fabRadius, host.top + fabRadius * 0.8,
-        cx + fabRadius * 1.3, host.top,
-        cx + fabRadius * 2.0, host.top,
+        cx + r, top + depth,
+        cx + halfW * 0.5, top,
+        cx + halfW, top,
       )
-      ..lineTo(host.right, host.top)
+      ..lineTo(host.right, top)
       ..lineTo(host.right, host.bottom)
       ..lineTo(host.left, host.bottom)
       ..close();
@@ -556,6 +573,7 @@ class _InsightCard extends ConsumerWidget {
         ),
       ),
       child: summary.when(
+        skipLoadingOnRefresh: true,
         loading: () => Center(
           child: Padding(
             padding: EdgeInsets.all(20.r),
@@ -918,44 +936,46 @@ class _VitalsMiniGrid extends ConsumerWidget {
   const _VitalsMiniGrid({required this.isDark});
   final bool isDark;
 
+  static const _kCandidates = [
+    HealthMetricType.bloodGlucose,
+    HealthMetricType.steps,
+    HealthMetricType.heartRate,
+    HealthMetricType.weight,
+  ];
+
+  static const _kFallback = [
+    HealthMetricType.bloodGlucose,
+    HealthMetricType.steps,
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(todaySummaryProvider);
+    // Always render — use empty map while loading/error so cards show immediately
+    final values = summary.valueOrNull ?? {};
 
-    return summary.when(
-      loading: () => const SizedBox.shrink(),
-      error: (e, _) => const SizedBox.shrink(),
-      data: (values) {
-        // Prefer types with data, else show bloodGlucose + steps
-        const candidates = [
-          HealthMetricType.bloodGlucose,
-          HealthMetricType.steps,
-          HealthMetricType.heartRate,
-          HealthMetricType.weight,
-        ];
-        final withData =
-            candidates.where((t) => (values[t] ?? 0) > 0).take(2).toList();
-        final types = withData.isNotEmpty
-            ? withData
-            : [HealthMetricType.bloodGlucose, HealthMetricType.steps];
+    // Start with types that have data (up to 2), then pad with fallback types.
+    final types = _kCandidates.where((t) => (values[t] ?? 0) > 0).take(2).toList();
+    for (final t in _kFallback) {
+      if (types.length >= 2) break;
+      if (!types.contains(t)) types.add(t);
+    }
 
-        return GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12.r,
-          crossAxisSpacing: 12.r,
-          childAspectRatio: 0.95,
-          children: [
-            for (final type in types)
-              _VitalMiniCard(
-                type: type,
-                summaryValue: values[type] ?? 0,
-                isDark: isDark,
-              ),
-          ],
-        );
-      },
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12.r,
+      crossAxisSpacing: 12.r,
+      childAspectRatio: 0.95,
+      children: [
+        for (final type in types)
+          _VitalMiniCard(
+            type: type,
+            summaryValue: values[type] ?? 0,
+            isDark: isDark,
+          ),
+      ],
     );
   }
 }
@@ -971,11 +991,18 @@ class _VitalMiniCard extends StatelessWidget {
   final double summaryValue;
   final bool isDark;
 
+  bool get _hasData => summaryValue > 0;
+
   @override
   Widget build(BuildContext context) {
     final bg = isDark ? NeuColors.darkCard : Colors.white;
     final fg = isDark ? Colors.white : NeuColors.textDark;
     final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+    final iconColor =
+        _hasData ? NeuColors.primary : (isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary);
+    final iconBg = _hasData
+        ? NeuColors.primary.withValues(alpha: 0.15)
+        : (isDark ? NeuColors.darkBorder.withValues(alpha: 0.4) : const Color(0xFFF0EEEC));
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
@@ -993,16 +1020,17 @@ class _VitalMiniCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row
             Row(
               children: [
                 Container(
                   width: 30.r,
                   height: 30.r,
                   decoration: BoxDecoration(
-                    color: NeuColors.primary.withValues(alpha: 0.15),
+                    color: iconBg,
                     borderRadius: BorderRadius.circular(8.r),
                   ),
-                  child: Icon(type.icon, color: NeuColors.primary, size: 16.r),
+                  child: Icon(type.icon, color: iconColor, size: 16.r),
                 ),
                 SizedBox(width: 8.w),
                 Flexible(
@@ -1010,7 +1038,7 @@ class _VitalMiniCard extends StatelessWidget {
                     type.label,
                     style: NeuTypography.sans(
                       fontSize: 12.sp,
-                      color: fg,
+                      color: _hasData ? fg : subtle,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
@@ -1020,9 +1048,16 @@ class _VitalMiniCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: 8.h),
-            StaticSparkline(type: type, height: 42.h),
+
+            // Sparkline or empty-state placeholder
+            if (_hasData)
+              StaticSparkline(type: type, height: 42.h)
+            else
+              _EmptySparkline(height: 42.h, isDark: isDark),
             SizedBox(height: 6.h),
-            if (type == HealthMetricType.steps && summaryValue > 0)
+
+            // Value
+            if (type == HealthMetricType.steps && _hasData)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
@@ -1039,12 +1074,49 @@ class _VitalMiniCard extends StatelessWidget {
               )
             else
               Text(
-                summaryValue > 0 ? Fmt.metricValue(type, summaryValue) : '—',
-                style: NeuTypography.serif(fontSize: 20.sp, color: fg),
+                _hasData ? Fmt.metricValue(type, summaryValue) : '—',
+                style: NeuTypography.serif(
+                  fontSize: 20.sp,
+                  color: _hasData ? fg : subtle,
+                ),
               ),
             if (type != HealthMetricType.steps && type.unit.isNotEmpty)
-              Text(type.unit, style: TextStyle(fontSize: 11.sp, color: subtle)),
+              Text(
+                _hasData ? type.unit : 'No data yet',
+                style: TextStyle(fontSize: 11.sp, color: subtle),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptySparkline extends StatelessWidget {
+  const _EmptySparkline({required this.height, required this.isDark});
+  final double height;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = isDark
+        ? NeuColors.darkBorder
+        : const Color(0xFFE2DDD8);
+    return SizedBox(
+      height: height,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(
+          12,
+          (i) => Container(
+            width: 3.r,
+            height: 3.r + (i % 3) * 2.r,
+            decoration: BoxDecoration(
+              color: dotColor,
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
         ),
       ),
     );

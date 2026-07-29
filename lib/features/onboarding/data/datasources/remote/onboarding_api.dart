@@ -1,11 +1,7 @@
 import 'package:dio/dio.dart';
 
-/// Thin Dio wrapper over the auth + onboarding REST endpoints. Returns decoded
-/// JSON maps; the repository maps them to domain entities. Endpoint shapes are
-/// documented in `docs/onboarding-api-contract.md`.
-///
-/// In development every call is served by `MockApiInterceptor`; in production
-/// the same calls hit the real backend (see `kUseMockApi` in `dio_client.dart`).
+import '../../../../../core/network/app_urls.dart';
+
 class OnboardingApi {
   OnboardingApi(this._dio);
 
@@ -18,40 +14,46 @@ class OnboardingApi {
     return <String, dynamic>{};
   }
 
-  Future<Map<String, dynamic>> verifyReferral(String code) =>
-      _asMap(_dio.post('/auth/referral/verify', data: {'code': code}));
+  Future<Map<String, dynamic>> verifyReferral(String code) => _asMap(
+    _dio.get(AppUrls.referenceEmail, queryParameters: {'ref_number': code}),
+  );
 
   Future<Map<String, dynamic>> signup({
+    required String refNumber,
     required String email,
     required String password,
-    String? referralCode,
+    required String confirmPassword,
   }) => _asMap(
-    _dio.post(
-      '/auth/signup',
-      data: {
-        'email': email,
-        'password': password,
-        'referralCode': referralCode,
-      },
-    ),
+    _dio.post(AppUrls.register, data: {
+      'ref_number': refNumber,
+      'email': email,
+      'password': password,
+      'confirm_password': confirmPassword,
+    }),
   );
 
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) => _asMap(
-    _dio.post('/auth/login', data: {'email': email, 'password': password}),
+    _dio.post(AppUrls.login, data: {'email': email, 'password': password}),
   );
 
   Future<Map<String, dynamic>> getOnboarding() =>
-      _asMap(_dio.get('/onboarding'));
+      _asMap(_dio.get(AppUrls.onboarding));
 
   Future<Map<String, dynamic>> patchProfile(Map<String, dynamic> changes) =>
-      _asMap(_dio.patch('/profile', data: changes));
+      _asMap(_dio.patch(AppUrls.profile, data: changes));
 
   Future<Map<String, dynamic>> patchOnboarding(Map<String, dynamic> answers) =>
-      _asMap(_dio.patch('/onboarding', data: {'answers': answers}));
+      _asMap(_dio.patch(AppUrls.onboarding, data: {'answers': answers}));
+
+  Future<Map<String, dynamic>> getPatientDetails() =>
+      _asMap(_dio.get(AppUrls.patientDetails));
+
+  Future<Map<String, dynamic>> savePatientProfile(Map<String, dynamic> data) =>
+      _asMap(_dio.patch(AppUrls.patientDetails, data: data));
 
   Future<Map<String, dynamic>> complete() =>
-      _asMap(_dio.post('/onboarding/complete'));
+      _asMap(_dio.post(AppUrls.onboardingComplete));
 }

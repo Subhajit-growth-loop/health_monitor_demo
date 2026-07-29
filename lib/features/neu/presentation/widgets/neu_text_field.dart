@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../../core/theme/neu_colors.dart';
 
@@ -22,6 +23,7 @@ class NeuTextField extends StatelessWidget {
     this.autofillHints,
     this.errorText,
     this.dark = false,
+    this.maxLength,
   });
 
   final TextEditingController controller;
@@ -37,6 +39,7 @@ class NeuTextField extends StatelessWidget {
   final FocusNode? focusNode;
   final Iterable<String>? autofillHints;
   final String? errorText;
+  final int? maxLength;
 
   /// When true, uses dark-theme colors (dark surface fill, white text, etc.).
   final bool dark;
@@ -78,6 +81,8 @@ class NeuTextField extends StatelessWidget {
           onSubmitted: onSubmitted,
           focusNode: focusNode,
           autofillHints: autofillHints,
+          maxLength: maxLength,
+          maxLengthEnforcement: maxLength != null ? MaxLengthEnforcement.enforced : null,
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,

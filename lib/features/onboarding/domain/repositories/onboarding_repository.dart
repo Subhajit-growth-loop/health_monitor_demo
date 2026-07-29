@@ -8,11 +8,11 @@ abstract interface class OnboardingRepository {
   /// `POST /auth/referral/verify`.
   Future<ReferralResult> verifyReferral(String code);
 
-  /// `POST /auth/signup`.
   Future<AuthResult> signup({
     required String email,
     required String password,
     String? referralCode,
+    String? confirmPassword,
   });
 
   /// `POST /auth/login`.
@@ -26,6 +26,13 @@ abstract interface class OnboardingRepository {
 
   /// `PATCH /onboarding` — persist a step's answers.
   Future<OnboardingDraft> saveStep(Map<String, dynamic> answers);
+
+  /// `GET /patient/me/details` — fetch the patient's saved medical profile to
+  /// prefill the verify-info step. Returns null if not yet created (404).
+  Future<UserProfile?> loadPatientDetails();
+
+  /// `POST /patient/profile` — save the verified medical profile on step 1.
+  Future<void> savePatientProfile(Map<String, dynamic> data);
 
   /// `POST /onboarding/complete` — finalize and fetch the welcome payload.
   Future<CompletionResult> complete();
