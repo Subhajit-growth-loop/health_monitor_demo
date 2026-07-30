@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -14,6 +15,7 @@ class HealthMonitorApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
 
     return ScreenUtilInit(
       designSize: const Size(375, 812),
@@ -26,6 +28,13 @@ class HealthMonitorApp extends ConsumerWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeMode,
+        // Ambient status-bar style for every screen without an AppBar. Screens
+        // with their own AnnotatedRegion (the image-backed auth/splash screens)
+        // still win, since the nearest region applies.
+        builder: (_, navigator) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppTheme.overlayStyle(isDark),
+          child: navigator ?? const SizedBox.shrink(),
+        ),
         home: child,
       ),
       child: const NeuSplashScreen(),

@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../session/token_manager.dart';
+import '../settings/app_settings.dart';
 import 'app_urls.dart';
 import 'mock_api_interceptor.dart';
-
-/// Flip to `true` to run entirely in-app with canned responses (no network).
-const bool kUseMockApi = false;
 
 /// A configured [Dio] shared across the auth + onboarding data sources.
 ///
 /// - Sets the base URL and sane timeouts.
 /// - Attaches `Authorization: Bearer <token>` from SharedPreferences on every
 ///   request once the user has signed in.
-/// - In mock mode, attaches [MockApiInterceptor] which resolves requests with
-///   canned REST responses.
+/// - Attaches [MockApiInterceptor], which answers the three onboarding-draft
+///   routes locally and forwards everything else — including the Verify-info
+///   step's `PATCH /patient/me/details` — to the real API.
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -37,9 +36,9 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  if (kUseMockApi) {
-    dio.interceptors.add(MockApiInterceptor());
-  }
+  dio.interceptors.add(
+    MockApiInterceptor(ref.watch(sharedPreferencesProvider)),
+  );
 
   return dio;
 });

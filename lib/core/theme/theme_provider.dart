@@ -10,9 +10,9 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   final SharedPreferences _prefs;
   static const _key = 'neu_theme_mode';
 
-  // Defaults to dark unless user has explicitly set light.
+  // Defaults to light unless the user has explicitly chosen dark.
   static ThemeMode _load(SharedPreferences prefs) =>
-      prefs.getString(_key) == 'light' ? ThemeMode.light : ThemeMode.dark;
+      prefs.getString(_key) == 'dark' ? ThemeMode.dark : ThemeMode.light;
 
   void setMode(ThemeMode mode) {
     state = mode;

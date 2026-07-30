@@ -33,7 +33,10 @@ class UserProfile {
       return [];
     }
     return UserProfile(
-      fullName: json['fullName'] as String? ?? json['name'] as String? ?? '',
+      fullName: json['fullName'] as String? ??
+          json['name'] as String? ??
+          json['full_name'] as String? ??
+          '',
       dateOfBirth: json['dateOfBirth'] as String? ?? json['date_of_birth'] as String? ?? '',
       gender: json['gender'] as String? ?? '',
       primaryDiagnosis: json['primaryDiagnosis'] as String? ?? json['primary_diagnosis'] as String? ?? '',

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../core/session/app_error_handler.dart';
+import '../../../../core/session/current_user.dart';
+import '../../../../core/session/token_manager.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../../core/theme/neu_colors.dart';
 import '../../../../core/theme/neu_typography.dart';
@@ -18,6 +21,7 @@ import '../widgets/static_sparkline.dart';
 import 'metric_detail_screen.dart';
 import 'sync_settings_screen.dart';
 import 'your_vitals_screen.dart';
+import '../../../neu/presentation/screens/neu_login_screen.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 
 // ── Export helpers ────────────────────────────────────────────────────────────
@@ -92,6 +96,66 @@ Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
 }
 
 enum _ExportMode { share, save }
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+
+/// Ends the session: `POST /auth/logout` with the stored refresh token, then
+/// clears local credentials and returns to the login screen.
+///
+/// The local session is cleared even when the network call fails — a user who
+/// asked to log out must not stay signed in on the device because the server
+/// was unreachable. The API error is still surfaced.
+Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Log out?'),
+      content: const Text(
+          "You'll need to sign in again to see your health data."),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: FilledButton.styleFrom(backgroundColor: NeuColors.primary),
+          child: const Text('Log out'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  final repo = ref.read(onboardingRepositoryProvider);
+  final refreshToken = TokenManager.instance.refreshToken;
+
+  String? apiError;
+  try {
+    if (refreshToken != null) {
+      await repo.logout(refreshToken);
+    }
+    // No refresh token stored — nothing for the server to revoke, so the local
+    // clear below is the whole logout.
+  } catch (e) {
+    apiError = AppErrorHandler.instance.handle(e, context: 'Logout');
+  }
+
+  await TokenManager.instance.clearToken();
+  await CurrentUser.instance.clear();
+
+  if (!context.mounted) return;
+  if (apiError != null) {
+    messenger.showSnackBar(
+      SnackBar(content: Text('Signed out locally — $apiError')),
+    );
+  }
+  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const NeuLoginScreen()),
+    (_) => false,
+  );
+}
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
@@ -350,6 +414,7 @@ class _TodayTab extends ConsumerWidget {
             : 'Good evening';
     final fg = isDark ? Colors.white : NeuColors.textDark;
     final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
+    final firstName = CurrentUser.instance.firstName;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -394,19 +459,13 @@ class _TodayTab extends ConsumerWidget {
                           color: subtle,
                         ),
                       ),
+                      // Read from the stored session, not the onboarding
+                      // controller: watching that provider here re-ran the
+                      // whole onboarding fetch (GET /onboarding + GET
+                      // /patient/me/details) on every dashboard open, and the
+                      // name popped in late once it resolved.
                       Text(
-                        ref.watch(onboardingControllerProvider)
-                                .valueOrNull
-                                ?.profile
-                                .firstName
-                                .isNotEmpty ==
-                            true
-                            ? ref
-                                .watch(onboardingControllerProvider)
-                                .valueOrNull!
-                                .profile
-                                .firstName
-                            : 'Good day',
+                        firstName.isEmpty ? 'Good day' : firstName,
                         style: NeuTypography.serif(
                           fontSize: 22.sp,
                           color: fg,
@@ -573,7 +632,11 @@ class _InsightCard extends ConsumerWidget {
         ),
       ),
       child: summary.when(
+        // Keep the last values on screen while a re-query runs. Without
+        // skipLoadingOnReload an invalidation swaps the whole card for a
+        // spinner, which read as a flash on every sync.
         skipLoadingOnRefresh: true,
+        skipLoadingOnReload: true,
         loading: () => Center(
           child: Padding(
             padding: EdgeInsets.all(20.r),
@@ -936,14 +999,10 @@ class _VitalsMiniGrid extends ConsumerWidget {
   const _VitalsMiniGrid({required this.isDark});
   final bool isDark;
 
-  static const _kCandidates = [
-    HealthMetricType.bloodGlucose,
-    HealthMetricType.steps,
-    HealthMetricType.heartRate,
-    HealthMetricType.weight,
-  ];
-
-  static const _kFallback = [
+  /// Fixed, not data-dependent. Picking cards by "which metrics have data"
+  /// meant the grid swapped cards in and out as each provider resolved — the
+  /// second half of the flicker. The set is now stable across every load.
+  static const _kTypes = [
     HealthMetricType.bloodGlucose,
     HealthMetricType.steps,
   ];
@@ -951,15 +1010,10 @@ class _VitalsMiniGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(todaySummaryProvider);
-    // Always render — use empty map while loading/error so cards show immediately
+    // Always render — use an empty map while loading/error so the cards keep
+    // their place in the layout instead of appearing late.
     final values = summary.valueOrNull ?? {};
-
-    // Start with types that have data (up to 2), then pad with fallback types.
-    final types = _kCandidates.where((t) => (values[t] ?? 0) > 0).take(2).toList();
-    for (final t in _kFallback) {
-      if (types.length >= 2) break;
-      if (!types.contains(t)) types.add(t);
-    }
+    final demoTypes = ref.watch(demoFilledTypesProvider).valueOrNull ?? const {};
 
     return GridView.count(
       crossAxisCount: 2,
@@ -969,11 +1023,12 @@ class _VitalsMiniGrid extends ConsumerWidget {
       crossAxisSpacing: 12.r,
       childAspectRatio: 0.95,
       children: [
-        for (final type in types)
+        for (final type in _kTypes)
           _VitalMiniCard(
             type: type,
             summaryValue: values[type] ?? 0,
             isDark: isDark,
+            isSample: demoTypes.contains(type),
           ),
       ],
     );
@@ -985,11 +1040,15 @@ class _VitalMiniCard extends StatelessWidget {
     required this.type,
     required this.summaryValue,
     required this.isDark,
+    this.isSample = false,
   });
 
   final HealthMetricType type;
   final double summaryValue;
   final bool isDark;
+
+  /// The value came from [DemoHealthData], not the device.
+  final bool isSample;
 
   bool get _hasData => summaryValue > 0;
 
@@ -1084,6 +1143,15 @@ class _VitalMiniCard extends StatelessWidget {
               Text(
                 _hasData ? type.unit : 'No data yet',
                 style: TextStyle(fontSize: 11.sp, color: subtle),
+              ),
+            if (isSample && _hasData)
+              Text(
+                'Sample data',
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  color: subtle,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
           ],
         ),
@@ -1281,6 +1349,63 @@ class _ProfileTab extends ConsumerWidget {
               ],
             ),
           ),
+          SizedBox(height: 20.h),
+          _SectionLabel(label: 'Account', isDark: isDark),
+          SizedBox(height: 10.h),
+          Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: cardBorder),
+            ),
+            child: Column(
+              children: [
+                if (CurrentUser.instance.email.isNotEmpty)
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline_rounded,
+                            color: NeuColors.primary, size: 20.r),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (CurrentUser.instance.name.isNotEmpty)
+                                Text(
+                                  CurrentUser.instance.name,
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    color: fg,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              Text(
+                                CurrentUser.instance.email,
+                                style:
+                                    TextStyle(fontSize: 12.sp, color: subtle),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (CurrentUser.instance.email.isNotEmpty)
+                  Divider(height: 0, color: cardBorder, indent: 52.w),
+                _ProfileTile(
+                  icon: Icons.logout_rounded,
+                  title: 'Log out',
+                  isDark: isDark,
+                  titleColor: const Color(0xFFD63031),
+                  iconColor: const Color(0xFFD63031),
+                  onTap: () => _handleLogout(context, ref),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1313,6 +1438,8 @@ class _ProfileTile extends StatelessWidget {
     required this.isDark,
     this.trailing,
     this.onTap,
+    this.titleColor,
+    this.iconColor,
   });
 
   final IconData icon;
@@ -1321,9 +1448,13 @@ class _ProfileTile extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
 
+  /// Overrides for destructive actions (log out).
+  final Color? titleColor;
+  final Color? iconColor;
+
   @override
   Widget build(BuildContext context) {
-    final fg = isDark ? Colors.white : NeuColors.textDark;
+    final fg = titleColor ?? (isDark ? Colors.white : NeuColors.textDark);
 
     return InkWell(
       onTap: onTap,
@@ -1332,7 +1463,7 @@ class _ProfileTile extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         child: Row(
           children: [
-            Icon(icon, color: NeuColors.primary, size: 20.r),
+            Icon(icon, color: iconColor ?? NeuColors.primary, size: 20.r),
             SizedBox(width: 12.w),
             Expanded(
               child: Text(

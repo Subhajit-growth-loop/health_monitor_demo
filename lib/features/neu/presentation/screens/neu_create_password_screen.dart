@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/session/app_error_handler.dart';
 import '../../../../../core/session/current_user.dart';
+import '../../../../../core/session/onboarding_progress.dart';
 import '../../../../../core/session/token_manager.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
@@ -126,7 +127,10 @@ class _NeuCreatePasswordScreenState
         role: auth.role ?? registered.role ?? '',
         gender: auth.gender ?? '',
       );
-      await ref.read(sharedPreferencesProvider).setBool('neu_onboarding_complete', false);
+      // Fresh account — start the flow at step 1 with no saved answers.
+      final prefs = ref.read(sharedPreferencesProvider);
+      await OnboardingProgress.markIncomplete(prefs, email);
+      await OnboardingProgress.clearDraft(prefs, email);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -134,7 +138,8 @@ class _NeuCreatePasswordScreenState
       );
     } catch (e) {
       if (mounted) {
-        final msg = AppErrorHandler.instance.handle(e) ?? 'Sign up failed';
+        final msg = AppErrorHandler.instance.handle(e, context: 'Sign up') ??
+            'Sign up failed';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
       }

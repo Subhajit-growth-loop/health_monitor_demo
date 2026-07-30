@@ -18,21 +18,26 @@ abstract interface class OnboardingRepository {
   /// `POST /auth/login`.
   Future<AuthResult> login({required String email, required String password});
 
-  /// `GET /onboarding` — profile + saved answer draft (resume / back-nav).
+  /// `POST /auth/logout` — ends the session for [refreshToken] server-side.
+  Future<void> logout(String refreshToken);
+
+  /// `GET /onboarding` — saved answer draft + the step reached (mock-served).
   Future<OnboardingSnapshot> loadOnboarding();
 
-  /// `PATCH /profile` — inline edits on the Verify-your-information step.
-  Future<UserProfile> updateProfile(Map<String, dynamic> changes);
-
-  /// `PATCH /onboarding` — persist a step's answers.
-  Future<OnboardingDraft> saveStep(Map<String, dynamic> answers);
+  /// `PATCH /onboarding` — persist a step's answers and the current step index
+  /// so a returning user resumes here (mock-served).
+  Future<OnboardingDraft> saveStep(
+    Map<String, dynamic> answers, {
+    required int stepIndex,
+  });
 
   /// `GET /patient/me/details` — fetch the patient's saved medical profile to
   /// prefill the verify-info step. Returns null if not yet created (404).
   Future<UserProfile?> loadPatientDetails();
 
-  /// `POST /patient/profile` — save the verified medical profile on step 1.
-  Future<void> savePatientProfile(Map<String, dynamic> data);
+  /// `PATCH /patient/me/details` — save the verified medical profile on step 1.
+  /// Returns the record as the server stored it, so nothing is kept locally.
+  Future<UserProfile> savePatientDetails(Map<String, dynamic> data);
 
   /// `POST /onboarding/complete` — finalize and fetch the welcome payload.
   Future<CompletionResult> complete();

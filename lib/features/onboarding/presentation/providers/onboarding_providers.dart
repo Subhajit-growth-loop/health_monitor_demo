@@ -105,11 +105,16 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
       profile = profile.copyWith(gender: storedGender);
     }
 
-    return OnboardingState(
+    // Resume where this email left off. The step list length depends on gender,
+    // so clamp rather than trust the stored index blindly.
+    final probe = OnboardingState(
       profile: profile,
       draft: snapshot.draft,
       stepIndex: 0,
     );
+    final resumeAt = snapshot.stepIndex.clamp(0, probe.steps.length - 1);
+
+    return probe.copyWith(stepIndex: resumeAt);
   }
 
   OnboardingState get _s => state.value!;
@@ -146,28 +151,33 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
     state = AsyncData(_s.copyWith(profile: updated));
   }
 
-  /// Persist the current draft and advance to the next step.
+  /// Persist the current draft **and** the step being moved to, so a returning
+  /// user lands here rather than back at step 1. Local (mock-served) storage.
   Future<void> saveAndNext() async {
     if (!state.hasValue) return;
-    final saved = await _repo.saveStep(_s.draft.toJson());
-    state = AsyncData(
-      _s.copyWith(
-        draft: saved,
-        stepIndex: (_s.stepIndex + 1).clamp(0, _s.steps.length - 1),
-      ),
-    );
+    final next = (_s.stepIndex + 1).clamp(0, _s.steps.length - 1);
+    final saved = await _repo.saveStep(_s.draft.toJson(), stepIndex: next);
+    state = AsyncData(_s.copyWith(draft: saved, stepIndex: next));
   }
 
-  void back() {
+  /// Going back is persisted too — otherwise a mid-flow exit would resume at a
+  /// step the user had already navigated away from.
+  Future<void> back() async {
     if (!state.hasValue || _s.isFirst) return;
-    state = AsyncData(_s.copyWith(stepIndex: _s.stepIndex - 1));
+    final prev = _s.stepIndex - 1;
+    state = AsyncData(_s.copyWith(stepIndex: prev));
+    await _repo.saveStep(_s.draft.toJson(), stepIndex: prev);
   }
 
-  /// POST /patient/profile — saves the verified medical profile (step 1).
-  Future<void> savePatientProfile() async {
+  /// `PATCH /patient/me/details` — the Verify-your-information step's only
+  /// write, fired by "Save & next". The step's fields live in memory purely so
+  /// the form can be edited; this is where they are persisted, and the server's
+  /// response replaces them so what the UI shows is what the server stored.
+  Future<void> savePatientDetails() async {
     if (!state.hasValue) return;
     final p = _s.profile;
-    await _repo.savePatientProfile({
+    final saved = await _repo.savePatientDetails({
+      'name': p.fullName,
       'date_of_birth': p.dateOfBirth,
       'gender': p.gender,
       'primary_diagnosis': p.primaryDiagnosis,
@@ -176,11 +186,20 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
       'current_medications': p.currentMedications,
       'current_supplements': p.currentSupplements,
     });
+    if (!state.hasValue) return;
+    // Keep the auth-derived gender, which drives the dynamic step count.
+    state = AsyncData(
+      _s.copyWith(
+        profile: saved.gender.isEmpty
+            ? saved.copyWith(gender: p.gender)
+            : saved,
+      ),
+    );
   }
 
   /// Finalize: persist the last step's answers, then `POST /onboarding/complete`.
   Future<CompletionResult> complete() async {
-    await _repo.saveStep(_s.draft.toJson());
+    await _repo.saveStep(_s.draft.toJson(), stepIndex: _s.stepIndex);
     return _repo.complete();
   }
 }

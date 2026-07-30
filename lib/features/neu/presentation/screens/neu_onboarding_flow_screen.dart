@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/session/app_error_handler.dart';
+import '../../../../../core/session/current_user.dart';
+import '../../../../../core/session/onboarding_progress.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
@@ -181,7 +183,11 @@ class _NeuOnboardingFlowScreenState
   Widget build(BuildContext context) {
     ref.listen(onboardingControllerProvider, (_, next) {
       if (next.hasError && mounted) {
-        final msg = AppErrorHandler.instance.handle(next.error!) ??
+        final msg = AppErrorHandler.instance.handle(
+              next.error!,
+              stackTrace: next.stackTrace,
+              context: 'Load onboarding',
+            ) ??
             'Could not load onboarding';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
@@ -339,9 +345,10 @@ class _NeuOnboardingFlowScreenState
     try {
       if (state.isLast) {
         final result = await ctrl.complete();
-        await ref
-            .read(sharedPreferencesProvider)
-            .setBool('neu_onboarding_complete', true);
+        await OnboardingProgress.markComplete(
+          ref.read(sharedPreferencesProvider),
+          CurrentUser.instance.email,
+        );
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -349,14 +356,21 @@ class _NeuOnboardingFlowScreenState
           ),
         );
       } else if (state.currentStep == OnboardingStep.verifyInfo) {
-        await ctrl.savePatientProfile();
+        // PATCH /patient/me/details — see savePatientDetails() in
+        // onboarding_providers.dart. Must succeed before advancing.
+        await ctrl.savePatientDetails();
         await ctrl.saveAndNext();
       } else {
         await ctrl.saveAndNext();
       }
-    } catch (e) {
+    } catch (e, st) {
       if (mounted) {
-        final msg = AppErrorHandler.instance.handle(e) ?? 'Something went wrong';
+        final msg = AppErrorHandler.instance.handle(
+              e,
+              stackTrace: st,
+              context: 'Onboarding · ${state.currentStep.name}',
+            ) ??
+            'Something went wrong';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
       }

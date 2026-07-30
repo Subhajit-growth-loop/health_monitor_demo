@@ -75,11 +75,20 @@ class AuthResult {
   }
 }
 
-/// Result of `GET /onboarding` — the profile plus the saved answer draft.
+/// Result of `GET /onboarding` — the saved answer draft plus the step the user
+/// had reached, which is what lets a returning user resume mid-flow.
 class OnboardingSnapshot {
-  const OnboardingSnapshot({required this.profile, required this.draft});
+  const OnboardingSnapshot({
+    required this.profile,
+    required this.draft,
+    this.stepIndex = 0,
+  });
+
   final UserProfile profile;
   final OnboardingDraft draft;
+
+  /// Index into the user's step list — persisted per email by the mock.
+  final int stepIndex;
 
   factory OnboardingSnapshot.fromJson(Map<String, dynamic> json) =>
       OnboardingSnapshot(
@@ -89,6 +98,9 @@ class OnboardingSnapshot {
         draft: OnboardingDraft.fromJson(
           Map<String, dynamic>.from(json['draft'] as Map? ?? {}),
         ),
+        stepIndex: (json['stepIndex'] as num?)?.toInt() ??
+            (json['step_index'] as num?)?.toInt() ??
+            0,
       );
 }
 

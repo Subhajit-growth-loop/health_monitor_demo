@@ -39,20 +39,35 @@ class OnboardingApi {
     _dio.post(AppUrls.login, data: {'email': email, 'password': password}),
   );
 
+  /// POST /auth/logout — real endpoint. Ends the session for [refreshToken].
+  Future<Map<String, dynamic>> logout(String refreshToken) => _asMap(
+    _dio.post(AppUrls.logout, data: {'refresh_token': refreshToken}),
+  );
+
+  /// Mock-served. Returns { profile, draft, stepIndex }.
   Future<Map<String, dynamic>> getOnboarding() =>
       _asMap(_dio.get(AppUrls.onboarding));
 
-  Future<Map<String, dynamic>> patchProfile(Map<String, dynamic> changes) =>
-      _asMap(_dio.patch(AppUrls.profile, data: changes));
+  /// Mock-served. Persists a step's [answers] and the step the user is now on.
+  Future<Map<String, dynamic>> patchOnboarding(
+    Map<String, dynamic> answers, {
+    required int stepIndex,
+  }) => _asMap(
+    _dio.patch(
+      AppUrls.onboarding,
+      data: {'answers': answers, 'step_index': stepIndex},
+    ),
+  );
 
-  Future<Map<String, dynamic>> patchOnboarding(Map<String, dynamic> answers) =>
-      _asMap(_dio.patch(AppUrls.onboarding, data: {'answers': answers}));
-
+  /// GET /patient/me/details
   Future<Map<String, dynamic>> getPatientDetails() =>
       _asMap(_dio.get(AppUrls.patientDetails));
 
-  Future<Map<String, dynamic>> savePatientProfile(Map<String, dynamic> data) =>
-      _asMap(_dio.patch(AppUrls.patientDetails, data: data));
+  /// PATCH /patient/me/details — the only write for the Verify-info step.
+  /// Returns the server's updated record, which is what the UI then renders.
+  Future<Map<String, dynamic>> patchPatientDetails(
+    Map<String, dynamic> data,
+  ) => _asMap(_dio.patch(AppUrls.patientDetails, data: data));
 
   Future<Map<String, dynamic>> complete() =>
       _asMap(_dio.post(AppUrls.onboardingComplete));

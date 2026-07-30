@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../../../core/session/onboarding_progress.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
@@ -50,8 +51,7 @@ class _NeuSplashScreenState extends ConsumerState<NeuSplashScreen> {
     final prefs = ref.read(sharedPreferencesProvider);
     final email = prefs.getString('neu_email') ?? '';
     final token = prefs.getString('neu_token') ?? '';
-    final onboardingComplete =
-        prefs.getBool('neu_onboarding_complete') ?? false;
+    final onboardingComplete = OnboardingProgress.isComplete(prefs, email);
 
     final Widget destination;
     if (email.isEmpty) {

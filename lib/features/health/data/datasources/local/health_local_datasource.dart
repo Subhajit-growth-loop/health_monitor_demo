@@ -13,16 +13,34 @@ import '../../models/health_record_model.dart';
 /// In production this table would live in an encrypted SQLite database
 /// (e.g. SQLCipher); the schema and access pattern are identical.
 class HealthLocalDataSource {
-  HealthLocalDataSource(this._db);
+  HealthLocalDataSource(this._db, {this.notifyDebounce = _kNotifyDebounce});
 
   final Database _db;
   static const table = 'health_records';
 
+  /// A single sync writes many times — one batch per acquisition plus one
+  /// `markSynced` per 50-record upload batch. Emitting on each write made every
+  /// dashboard provider re-query that many times in a burst, which is what the
+  /// cards were visibly flickering through. Writes inside this window collapse
+  /// into one trailing event, so the UI re-reads once when the burst settles.
+  static const _kNotifyDebounce = Duration(milliseconds: 350);
+  final Duration notifyDebounce;
+
   final _changes = StreamController<void>.broadcast();
   Stream<void> get changes => _changes.stream;
 
+  Timer? _notifyTimer;
+
   void _notify() {
-    if (!_changes.isClosed) _changes.add(null);
+    if (_changes.isClosed) return;
+    if (notifyDebounce == Duration.zero) {
+      _changes.add(null);
+      return;
+    }
+    _notifyTimer?.cancel();
+    _notifyTimer = Timer(notifyDebounce, () {
+      if (!_changes.isClosed) _changes.add(null);
+    });
   }
 
   static Future<void> createSchema(Database db) async {
@@ -263,5 +281,8 @@ class HealthLocalDataSource {
     }
   }
 
-  Future<void> dispose() => _changes.close();
+  Future<void> dispose() {
+    _notifyTimer?.cancel();
+    return _changes.close();
+  }
 }

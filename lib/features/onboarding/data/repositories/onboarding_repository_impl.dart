@@ -56,12 +56,15 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   @override
-  Future<UserProfile> updateProfile(Map<String, dynamic> changes) async =>
-      UserProfile.fromJson(await _api.patchProfile(changes));
+  Future<OnboardingDraft> saveStep(
+    Map<String, dynamic> answers, {
+    required int stepIndex,
+  }) async => OnboardingDraft.fromJson(
+    await _api.patchOnboarding(answers, stepIndex: stepIndex),
+  );
 
   @override
-  Future<OnboardingDraft> saveStep(Map<String, dynamic> answers) async =>
-      OnboardingDraft.fromJson(await _api.patchOnboarding(answers));
+  Future<void> logout(String refreshToken) => _api.logout(refreshToken);
 
   @override
   Future<UserProfile?> loadPatientDetails() async {
@@ -75,8 +78,8 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   @override
-  Future<void> savePatientProfile(Map<String, dynamic> data) =>
-      _api.savePatientProfile(data);
+  Future<UserProfile> savePatientDetails(Map<String, dynamic> data) async =>
+      UserProfile.fromJson(await _api.patchPatientDetails(data));
 
   @override
   Future<CompletionResult> complete() async =>

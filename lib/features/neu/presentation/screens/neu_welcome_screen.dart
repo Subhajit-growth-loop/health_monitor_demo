@@ -76,7 +76,9 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _codeError = AppErrorHandler.instance.handle(e) ?? 'Code not recognised';
+        _codeError =
+            AppErrorHandler.instance.handle(e, context: 'Verify referral') ??
+                'Code not recognised';
       });
     }
   }

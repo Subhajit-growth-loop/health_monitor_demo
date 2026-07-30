@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../../core/session/app_error_handler.dart';
 import '../../../../../core/session/current_user.dart';
+import '../../../../../core/session/onboarding_progress.dart';
 import '../../../../../core/session/token_manager.dart';
 import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
@@ -14,6 +15,7 @@ import '../widgets/neu_base_screen.dart';
 import '../widgets/neu_logo.dart';
 import '../widgets/neu_primary_button.dart';
 import '../widgets/neu_text_field.dart';
+import 'neu_onboarding_flow_screen.dart';
 import 'neu_welcome_screen.dart';
 
 class NeuLoginScreen extends ConsumerStatefulWidget {
@@ -81,17 +83,23 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
         role: auth.role ?? '',
         gender: auth.gender ?? '',
       );
-      await ref
-          .read(sharedPreferencesProvider)
-          .setBool('neu_onboarding_complete', true);
+      // Resume onboarding if this email never finished it — the saved step and
+      // answers are restored by the onboarding controller.
+      final prefs = ref.read(sharedPreferencesProvider);
+      final done = OnboardingProgress.isComplete(prefs, auth.email ?? email);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(
+          builder: (_) => done
+              ? const DashboardScreen()
+              : const NeuOnboardingFlowScreen(),
+        ),
       );
     } catch (e) {
       if (mounted) {
-        final msg = AppErrorHandler.instance.handle(e) ?? 'Login failed';
+        final msg = AppErrorHandler.instance.handle(e, context: 'Login') ??
+            'Login failed';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg)));
       }

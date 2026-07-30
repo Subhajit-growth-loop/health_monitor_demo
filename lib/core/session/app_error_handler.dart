@@ -18,20 +18,59 @@ class AppErrorHandler {
   /// Optional UI-layer callback. Set once in the root widget build/initState.
   ErrorCallback? onError;
 
-  /// Called when any request returns HTTP 401. Use this to clear the session
-  /// and redirect to the login screen via a global NavigatorKey.
+  /// Called when an *authenticated* request returns HTTP 401. Use this to clear
+  /// the session and redirect to the login screen via a global NavigatorKey.
   VoidCallback? onSessionExpired;
+
+  /// Reason phrases a framework emits when no handler supplied a message —
+  /// `{"message": "Not Found"}` says nothing the 404 didn't. Only a body that
+  /// echoes its *own* status phrase is dropped; every other server string is
+  /// shown to the user verbatim.
+  static const Map<int, String> _statusPhrases = {
+    400: 'badrequest',
+    401: 'unauthorized',
+    403: 'forbidden',
+    404: 'notfound',
+    405: 'methodnotallowed',
+    409: 'conflict',
+    422: 'unprocessableentity',
+    429: 'toomanyrequests',
+    500: 'internalservererror',
+    501: 'notimplemented',
+    502: 'badgateway',
+    503: 'serviceunavailable',
+    504: 'gatewaytimeout',
+  };
 
   /// Parse, log, and optionally surface [error] to the UI.
   /// Returns the human-readable message so callers can use it directly.
   String? handle(Object error, {StackTrace? stackTrace, String? context}) {
     final message = _toMessage(error);
     if (kDebugMode) {
-      debugPrint('[AppErrorHandler]${context != null ? ' [$context]' : ''} $message');
+      final where = <String>[
+        if (context != null && context.isNotEmpty) context,
+        ?_origin(error),
+      ].join(' · ');
+      debugPrint(
+        '[AppErrorHandler]${where.isEmpty ? '' : ' [$where]'} $message',
+      );
+      // The raw body, so a message we failed to extract is still visible.
+      if (error is DioException && error.response?.data != null) {
+        debugPrint('[AppErrorHandler] body: ${error.response!.data}');
+      }
       if (stackTrace != null) debugPrint(stackTrace.toString());
     }
     onError?.call(message);
     return message;
+  }
+
+  /// `GET /patient/me/details → 404` — tells you which call failed, which a
+  /// bare "Not Found" never does.
+  String? _origin(Object error) {
+    if (error is! DioException) return null;
+    final req = error.requestOptions;
+    final status = error.response?.statusCode;
+    return '${req.method} ${req.path}${status == null ? '' : ' → $status'}';
   }
 
   /// Returns a clean, user-facing message for any error type.
@@ -41,37 +80,116 @@ class AppErrorHandler {
   }
 
   String _parseDio(DioException e) {
-    // Prefer the backend's own message when available
-    final data = e.response?.data;
-    if (data is Map) {
-      final errorBlock = data['error'];
-      if (errorBlock is Map) {
-        final msg = errorBlock['message'];
-        if (msg is String && msg.isNotEmpty) return msg;
+    final status = e.response?.statusCode ?? 0;
+    final backend = _backendMessage(e.response?.data, status);
+
+    // A 401 on a request that carried a token means the session died — clear it
+    // and bounce to login. Without a token it's just a failed sign-in, so the
+    // backend's own wording ("Invalid email or password") is what the user needs.
+    if (status == 401) {
+      final wasAuthenticated =
+          e.requestOptions.headers.containsKey('Authorization');
+      if (wasAuthenticated) {
+        onSessionExpired?.call();
+        return 'Your session has expired. Please log in again.';
       }
-      final msg = data['message'];
-      if (msg is String && msg.isNotEmpty) return msg;
+      return backend ?? 'Incorrect email or password.';
     }
+
+    // Prefer the backend's own message, but only when it says something the
+    // status code doesn't already.
+    if (backend != null) return backend;
 
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
         return 'Request timed out. Check your connection and try again.';
       case DioExceptionType.connectionError:
         return 'No internet connection.';
+      case DioExceptionType.cancel:
+        return 'Request cancelled.';
+      case DioExceptionType.badCertificate:
+        return "Couldn't establish a secure connection.";
       case DioExceptionType.badResponse:
-        final status = e.response?.statusCode ?? 0;
-        if (status == 401) {
-          onSessionExpired?.call();
-          return 'Your session has expired. Please log in again.';
-        }
-        if (status == 403) return 'You don\'t have permission to do that.';
-        if (status == 404) return 'Resource not found.';
-        if (status >= 500) return 'Server error. Please try again later.';
-        return 'Unexpected error ($status).';
-      default:
-        return e.message ?? 'Something went wrong.';
+        return _statusMessage(status);
+      case DioExceptionType.unknown:
+        return e.error is FormatException
+            ? 'The server sent an unexpected response.'
+            : e.message ?? 'Something went wrong. Please try again.';
     }
+  }
+
+  /// Friendly wording for a status code with no usable body.
+  String _statusMessage(int status) {
+    if (status == 400) return 'That request was not valid. Please check your details.';
+    if (status == 403) return "You don't have permission to do that.";
+    if (status == 404) {
+      // Almost always a client/server contract mismatch rather than anything the
+      // user did — say so plainly instead of the raw "Not Found".
+      return "We couldn't find that on the server. Please try again, or contact "
+          'support if it keeps happening.';
+    }
+    if (status == 409) return 'That conflicts with something that already exists.';
+    if (status == 422) return "Some of those details couldn't be saved. Please review them.";
+    if (status == 429) return 'Too many attempts. Please wait a moment and try again.';
+    if (status >= 500) return 'Server error. Please try again later.';
+    return status == 0
+        ? 'Something went wrong. Please try again.'
+        : 'Unexpected error ($status).';
+  }
+
+  /// Digs the server's own message out of the response body, whatever shape it
+  /// takes:
+  ///   {"error": {"code": "...", "message": "..."}}
+  ///   {"error": "..."} / {"message": "..."} / {"detail": "..."}
+  ///   {"errors": ["...", "..."]} / {"errors": {"email": ["..."]}}
+  /// Returns null only when the body is empty or merely echoes [status]'s
+  /// reason phrase.
+  String? _backendMessage(Object? data, int status) {
+    if (data is String) return _clean(data, status);
+    if (data is! Map) return null;
+
+    final errorBlock = data['error'] ?? data['errors'];
+    if (errorBlock is Map) {
+      final nested = _clean(errorBlock['message'], status) ??
+          _clean(errorBlock['detail'], status) ??
+          _clean(errorBlock['description'], status);
+      if (nested != null) return nested;
+      // Validation shape: {"email": ["is already taken"]}
+      final fromFields = errorBlock.values
+          .map((v) => _clean(v, status))
+          .whereType<String>()
+          .toList();
+      if (fromFields.isNotEmpty) return fromFields.join('\n');
+    }
+
+    return _clean(data['message'], status) ??
+        _clean(data['detail'], status) ??
+        _clean(errorBlock, status) ??
+        _clean(data['description'], status);
+  }
+
+  /// Normalises a candidate message; returns null when it carries no
+  /// information beyond [status]. Lists are flattened, non-strings ignored.
+  String? _clean(Object? value, int status) {
+    if (value is List) {
+      final parts =
+          value.map((v) => _clean(v, status)).whereType<String>().toList();
+      return parts.isEmpty ? null : parts.join('\n');
+    }
+    if (value is! String) return null;
+
+    final text = value.trim();
+    if (text.isEmpty) return null;
+    // Bare HTML error pages ("<!DOCTYPE html>...") are never user-facing.
+    if (text.startsWith('<')) return null;
+
+    final normalised = text.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (normalised == 'null' || normalised == 'error') return null;
+    if (normalised == _statusPhrases[status]) return null;
+
+    return text;
   }
 }

@@ -25,38 +25,36 @@ abstract final class AppUrls {
   /// Response: { id, token, email, role, gender }
   static const String login = '/auth/login';
 
+  /// POST /auth/logout — ends the session belonging to a refresh token.
+  /// Body:     { refresh_token }
+  /// Response: { message }          422 on a missing/invalid token.
+  static const String logout = '/auth/logout';
+
   // ── Onboarding ─────────────────────────────────────────────────────────────
 
-  /// GET  /onboarding
-  /// Response: { profile: {...}, draft: {...} }
+  /// Served locally by [MockApiInterceptor], not by the backend — steps 2-10
+  /// keep their answers on the device. See mock_api_interceptor.dart.
+  ///
+  /// GET   /onboarding  → `{ profile: {}, draft: {...}, stepIndex: <int> }`
+  /// PATCH /onboarding  ← `{ answers: {...}, step_index: <int> }` → draft
   static const String onboarding = '/onboarding';
 
-  /// POST /onboarding/complete
+  /// POST /onboarding/complete — also mock-served.
   /// Response: { coachName, userName, whatHappensNext: [...] }
   static const String onboardingComplete = '/onboarding/complete';
 
-  // ── Profile ────────────────────────────────────────────────────────────────
-
-  /// PATCH /profile
-  /// Body:     { any profile fields to update }
-  /// Response: updated profile object
-  static const String profile = '/profile';
-
   // ── Patient medical profile ────────────────────────────────────────────────
 
-  /// GET /patient/me/details
-  /// Response: { id, patient_id, date_of_birth, gender, primary_diagnosis,
-  ///             diagnosed_at, other_conditions, current_medications,
-  ///             current_supplements, created_at, updated_at }
+  /// The Verify-your-information step reads and writes this one endpoint.
+  ///
+  /// GET   /patient/me/details
+  /// PATCH /patient/me/details   ← fired by "Save & next" on step 1
+  ///
+  /// Body (PATCH) and response (both) share the same shape:
+  ///   { id, patient_id, name, date_of_birth, gender, primary_diagnosis,
+  ///     diagnosed_at, other_conditions, current_medications,
+  ///     current_supplements, created_at, updated_at }
   static const String patientDetails = '/patient/me/details';
-
-  /// POST /patient/profile
-  /// Body: {
-  ///   date_of_birth, gender, primary_diagnosis, diagnosed_at,
-  ///   other_conditions: [...], current_medications: [...], current_supplements: [...]
-  /// }
-  /// Response: full patient profile object
-  static const String patientProfile = '/patient/profile';
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
