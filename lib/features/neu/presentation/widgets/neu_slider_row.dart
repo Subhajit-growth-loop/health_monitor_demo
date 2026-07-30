@@ -27,6 +27,7 @@ class NeuSliderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -40,7 +41,7 @@ class NeuSliderRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: s.onSurface,
                 ),
               ),
             ),
@@ -49,10 +50,10 @@ class NeuSliderRow extends StatelessWidget {
               height: 36.h,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: NeuColors.darkCard,
+                color: s.card,
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.all(Radius.circular(20.r)),
-                border: Border.all(color: NeuColors.darkBorder),
+                border: Border.all(color: s.border),
               ),
               child: Text(emoji, style: const TextStyle(fontSize: 18)),
             ),
@@ -62,7 +63,7 @@ class NeuSliderRow extends StatelessWidget {
           data: SliderThemeData(
             trackHeight: 6,
             activeTrackColor: NeuColors.primary,
-            inactiveTrackColor: NeuColors.darkCard,
+            inactiveTrackColor: s.border,
             thumbColor: Colors.white,
             overlayColor: NeuColors.primary.withValues(alpha: 0.12),
             thumbShape: const _NeuThumbShape(radius: 11, ringWidth: 2.5),
@@ -84,14 +85,14 @@ class NeuSliderRow extends StatelessWidget {
                 minLabel,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: NeuColors.darkTextMuted,
+                  color: s.textMuted,
                 ),
               ),
               Text(
                 maxLabel,
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: NeuColors.darkTextMuted,
+                  color: s.textMuted,
                 ),
               ),
             ],

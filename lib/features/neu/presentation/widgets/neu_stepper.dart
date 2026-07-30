@@ -24,19 +24,20 @@ class NeuStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: NeuColors.darkBorder),
+        border: Border.all(color: s.border),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               label,
-              style: TextStyle(fontSize: 14.sp, color: Colors.white),
+              style: TextStyle(fontSize: 14.sp, color: s.onSurface),
             ),
           ),
           _StepButton(
@@ -72,6 +73,7 @@ class _StepButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
@@ -79,13 +81,13 @@ class _StepButton extends StatelessWidget {
         width: 36.r,
         height: 36.r,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: enabled ? 0.12 : 0.06),
+          color: s.onSurface.withValues(alpha: enabled ? 0.12 : 0.06),
           borderRadius: BorderRadius.circular(9.r),
         ),
         child: Icon(
           icon,
           size: 18,
-          color: enabled ? Colors.white : Colors.white38,
+          color: enabled ? s.onSurface : s.textMuted,
         ),
       ),
     );

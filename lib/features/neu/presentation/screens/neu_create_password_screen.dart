@@ -151,11 +151,14 @@ class _NeuCreatePasswordScreenState
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return NeuBaseScreen(
-      backgroundColor: NeuColors.darkBackground,
-      backgroundImage: 'assets/images/auth_sc_dark_bg.png',
-      lightStatusIcons: true,
-      navigationBarColor: NeuColors.darkBackground,
+      backgroundColor: s.background,
+      backgroundImage: s.isDark
+          ? 'assets/images/auth_sc_dark_bg.png'
+          : 'assets/images/auth_sc_bg.png',
+      lightStatusIcons: s.isDark,
+      navigationBarColor: s.background,
       resizeToAvoidBottomInset: true,
       child: Column(
         children: [
@@ -183,7 +186,7 @@ class _NeuCreatePasswordScreenState
                     'your Neu Health account.',
                     style: TextStyle(
                       fontSize: 14.sp,
-                      color: Colors.white60,
+                      color: s.textMuted,
                       height: 1.5,
                     ),
                   ),
@@ -196,11 +199,10 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.email],
                     errorText: _emailError,
-                    dark: true,
                     onChanged: (_) => setState(() => _emailError = null),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.mail_outline_rounded,
-                      color: NeuColors.darkTextMuted,
+                      color: s.textMuted,
                       size: 20,
                     ),
                   ),
@@ -213,11 +215,10 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.newPassword],
                     errorText: _passwordError,
-                    dark: true,
                     onChanged: (_) => setState(() => _passwordError = null),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.lock_outline_rounded,
-                      color: NeuColors.darkTextMuted,
+                      color: s.textMuted,
                       size: 20,
                     ),
                     suffixIcon: IconButton(
@@ -225,7 +226,7 @@ class _NeuCreatePasswordScreenState
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: NeuColors.darkTextMuted,
+                        color: s.textMuted,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -241,12 +242,11 @@ class _NeuCreatePasswordScreenState
                     textInputAction: TextInputAction.done,
                     autofillHints: const [AutofillHints.newPassword],
                     errorText: _confirmError,
-                    dark: true,
                     onChanged: (_) => setState(() => _confirmError = null),
                     onSubmitted: (_) => _startOnboarding(),
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.lock_outline_rounded,
-                      color: NeuColors.darkTextMuted,
+                      color: s.textMuted,
                       size: 20,
                     ),
                     suffixIcon: IconButton(
@@ -254,7 +254,7 @@ class _NeuCreatePasswordScreenState
                         _obscureConfirm
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: NeuColors.darkTextMuted,
+                        color: s.textMuted,
                         size: 20,
                       ),
                       onPressed: () =>
@@ -284,7 +284,7 @@ class _NeuCreatePasswordScreenState
                     text: TextSpan(
                       style: TextStyle(
                         fontSize: 14.sp,
-                        color: Colors.white60,
+                        color: s.textMuted,
                       ),
                       children: const [
                         TextSpan(text: 'Already have an account? '),
@@ -315,19 +315,20 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44.r,
         height: 44.r,
         decoration: BoxDecoration(
-          color: NeuColors.darkCard,
+          color: s.card,
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: NeuColors.darkBorder),
+          border: Border.all(color: s.border),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.chevron_left_rounded,
-          color: Colors.white,
+          color: s.onSurface,
           size: 26,
         ),
       ),

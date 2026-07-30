@@ -51,7 +51,7 @@ class OnboardingDraft {
   const OnboardingDraft({
     this.motivations = const [],
     this.supportTypes = const [],
-    this.activityLevel,
+    this.activityLevel = defaultActivityLevel,
     this.eatingRhythm,
     this.sleepHours = 7,
     this.dietaryPrefs = const [],
@@ -69,6 +69,9 @@ class OnboardingDraft {
 
   /// Step 2 — "What kind of support…" chips (multi).
   final List<String> supportTypes;
+
+  /// Pre-selected on the rhythm step so the control is never blank.
+  static const String defaultActivityLevel = 'low';
 
   /// Step 3 — activity level / eating rhythm / sleep / dietary prefs.
   final String? activityLevel;
@@ -102,7 +105,10 @@ class OnboardingDraft {
       OnboardingDraft(
         motivations: _strList(json['motivations']),
         supportTypes: _strList(json['supportTypes']),
-        activityLevel: json['activityLevel'] as String?,
+        // A stored null (a draft saved before this default existed, or the mock's
+        // blank draft) still resolves to Low rather than an empty control.
+        activityLevel:
+            json['activityLevel'] as String? ?? defaultActivityLevel,
         eatingRhythm: json['eatingRhythm'] as String?,
         sleepHours: (json['sleepHours'] as num?)?.toInt() ?? 7,
         dietaryPrefs: _strList(json['dietaryPrefs']),

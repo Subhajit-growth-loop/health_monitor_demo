@@ -77,7 +77,8 @@ class MockApiInterceptor extends Interceptor {
   static Map<String, dynamic> blankDraft() => {
     'motivations': <String>[],
     'supportTypes': <String>[],
-    'activityLevel': null,
+    // Pre-selected on the rhythm step — see OnboardingDraft.defaultActivityLevel.
+    'activityLevel': 'low',
     'eatingRhythm': null,
     'sleepHours': 7,
     'dietaryPrefs': <String>[],

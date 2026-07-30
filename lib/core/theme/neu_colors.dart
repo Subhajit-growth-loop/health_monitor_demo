@@ -56,3 +56,82 @@ abstract final class NeuColors {
   /// #83746C — muted / secondary text on dark screens.
   static const Color darkTextMuted = Color(0xFF83746C);
 }
+
+/// The four surface colours the Neu auth + onboarding screens need, resolved for
+/// the active theme.
+///
+/// Those screens were written against the dark tokens directly, so they stayed
+/// dark in light mode. Reading them through [NeuSurface.of] makes a screen follow
+/// the theme with a one-line change at the top of `build`, and the pairs match
+/// what dashboard_screen.dart already does by hand for each `isDark` branch.
+class NeuSurface {
+  const NeuSurface({
+    required this.background,
+    required this.surface,
+    required this.card,
+    required this.border,
+    required this.textMuted,
+    required this.onSurface,
+    required this.accent,
+    required this.emphasis,
+    required this.isDark,
+  });
+
+  /// Screen background.
+  final Color background;
+
+  /// Slightly elevated background (nav bars, sheets).
+  final Color surface;
+
+  /// Cards, tiles, input fills.
+  final Color card;
+
+  /// Borders and dividers.
+  final Color border;
+
+  /// Secondary / muted text.
+  final Color textMuted;
+
+  /// Primary text and icons sitting on [background] or [card].
+  final Color onSurface;
+
+  /// Tinted callout fill — info messages, "what happens next" panels.
+  final Color accent;
+
+  /// Content colour on [accent], and for eyebrow labels.
+  final Color emphasis;
+
+  final bool isDark;
+
+  /// Light values are the ones these screens shipped with before they were
+  /// converted to dark (commit 4079093), so this restores the original design
+  /// rather than approximating it.
+  static const light = NeuSurface(
+    background: NeuColors.screenBackground,
+    surface: Colors.white,
+    card: Colors.white,
+    border: NeuColors.inputBorder,
+    textMuted: NeuColors.textSecondary,
+    onSurface: NeuColors.textDark,
+    accent: NeuColors.accentYellow,
+    emphasis: NeuColors.olive,
+    isDark: false,
+  );
+
+  static const dark = NeuSurface(
+    background: NeuColors.darkBackground,
+    surface: NeuColors.darkSurface,
+    card: NeuColors.darkCard,
+    border: NeuColors.darkBorder,
+    textMuted: NeuColors.darkTextMuted,
+    onSurface: Colors.white,
+    // The dark pass collapsed the accent fill into the card colour and used
+    // primary where light used olive.
+    accent: NeuColors.darkCard,
+    emphasis: NeuColors.primary,
+    isDark: true,
+  );
+
+  static NeuSurface of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
+}

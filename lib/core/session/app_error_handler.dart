@@ -64,6 +64,8 @@ class AppErrorHandler {
       if (error is DioException && error.response?.data != null) {
         debugPrint('[AppErrorHandler] body: ${error.response!.data}');
       }
+      final budget = _timeoutBudget(error);
+      if (budget != null) debugPrint('[AppErrorHandler] $budget');
       if (stackTrace != null) debugPrint(stackTrace.toString());
     }
     onError?.call(message);
@@ -71,12 +73,31 @@ class AppErrorHandler {
   }
 
   /// `GET /patient/me/details → 404` — tells you which call failed, which a
-  /// bare "Not Found" never does.
+  /// bare "Not Found" never does. With no response, the DioException type stands
+  /// in for the status, so a timeout says *which* timeout.
   String? _origin(Object error) {
     if (error is! DioException) return null;
     final req = error.requestOptions;
     final status = error.response?.statusCode;
-    return '${req.method} ${req.path}${status == null ? '' : ' → $status'}';
+    return '${req.method} ${req.path} → ${status ?? error.type.name}';
+  }
+
+  /// Timeouts are routinely misread as "the server is slow" when the real cause
+  /// is a stale client config, so print the budget that was actually in force.
+  /// [RequestOptions] carries the effective values for that request.
+  String? _timeoutBudget(Object error) {
+    if (error is! DioException) return null;
+    const timeoutTypes = {
+      DioExceptionType.connectionTimeout,
+      DioExceptionType.sendTimeout,
+      DioExceptionType.receiveTimeout,
+    };
+    if (!timeoutTypes.contains(error.type)) return null;
+
+    final o = error.requestOptions;
+    String s(Duration? d) => d == null ? 'unset' : '${d.inSeconds}s';
+    return 'timeouts in effect — connect ${s(o.connectTimeout)}, '
+        'send ${s(o.sendTimeout)}, receive ${s(o.receiveTimeout)}';
   }
 
   /// Returns a clean, user-facing message for any error type.
@@ -159,6 +180,13 @@ class AppErrorHandler {
 
     final errorBlock = data['error'] ?? data['errors'];
     if (errorBlock is Map) {
+      // Field-level validation errors, as returned for a 422:
+      //   error.details: [{ field, message, type }, …]
+      // The parent message ("The submitted data is invalid.") says nothing about
+      // which field, so prefer these when present.
+      final fromDetails = _fieldMessages(errorBlock['details'], status);
+      if (fromDetails != null) return fromDetails;
+
       final nested = _clean(errorBlock['message'], status) ??
           _clean(errorBlock['detail'], status) ??
           _clean(errorBlock['description'], status);
@@ -175,6 +203,39 @@ class AppErrorHandler {
         _clean(data['detail'], status) ??
         _clean(errorBlock, status) ??
         _clean(data['description'], status);
+  }
+
+  /// Renders `[{field, message}, …]` as user-facing lines, e.g.
+  ///   `Other conditions: 'none' cannot be combined with other values`
+  ///
+  /// Array indices in a field path (`current_supplements.6`) are dropped — the
+  /// position within a list means nothing to the person reading it.
+  String? _fieldMessages(Object? details, int status) {
+    if (details is! List || details.isEmpty) return null;
+
+    final lines = <String>[];
+    for (final entry in details) {
+      if (entry is! Map) continue;
+      final message = _clean(entry['message'], status);
+      if (message == null) continue;
+
+      final field = entry['field'];
+      if (field is! String || field.isEmpty) {
+        lines.add(message);
+        continue;
+      }
+      final name = field
+          .split('.')
+          .where((part) => int.tryParse(part) == null)
+          .join(' ')
+          .replaceAll('_', ' ');
+      final label = name.isEmpty
+          ? ''
+          : '${name[0].toUpperCase()}${name.substring(1)}: ';
+      lines.add('$label$message');
+    }
+
+    return lines.isEmpty ? null : lines.join('\n');
   }
 
   /// Normalises a candidate message; returns null when it carries no

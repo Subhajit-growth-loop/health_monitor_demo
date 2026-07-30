@@ -29,11 +29,14 @@ class AuthInterceptor extends Interceptor {
   })  : _dio = dio,
         // Deliberately interceptor-free: routing the refresh call back through
         // this interceptor would recurse on its own 401.
+        // Timeouts are inherited from the client being authorized, so the
+        // refresh call can't be stricter than the request that triggered it.
         _refreshDio = refreshClient ??
             Dio(BaseOptions(
               baseUrl: dio.options.baseUrl,
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 15),
+              connectTimeout: dio.options.connectTimeout,
+              sendTimeout: dio.options.sendTimeout,
+              receiveTimeout: dio.options.receiveTimeout,
               contentType: 'application/json',
             ));
 
@@ -143,23 +146,57 @@ class AuthInterceptor extends Interceptor {
     handler.next(options);
   }
 
+  /// Error codes the backend uses for a dead access token. Checked alongside the
+  /// status, because a server that answers `403`/`422` for an expired token would
+  /// otherwise never get a refresh.
+  static const _expiredCodes = {
+    'token_expired',
+    'invalid_token',
+    'unauthorized',
+  };
+
+  /// True when [err] says "this access token is no longer good".
+  static bool _isTokenRejection(DioException err) {
+    if (err.response?.statusCode == 401) return true;
+    final data = err.response?.data;
+    if (data is Map) {
+      final block = data['error'];
+      final code = block is Map ? block['code'] : null;
+      if (code is String && _expiredCodes.contains(code)) return true;
+    }
+    return false;
+  }
+
   @override
   Future<void> onError(
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
     final options = err.requestOptions;
-    final recoverable = err.response?.statusCode == 401 &&
-        !_isAuthRoute(options.path) &&
-        options.extra[_retriedFlag] != true;
 
-    if (!recoverable) {
+    if (!_isTokenRejection(err) ||
+        _isAuthRoute(options.path) ||
+        options.extra[_retriedFlag] == true) {
       handler.next(err);
       return;
     }
 
-    // An unauthenticated 401 is not a session problem — nothing to refresh.
+    // An unauthenticated rejection is not a session problem — nothing to refresh.
     if (!options.headers.containsKey('Authorization')) {
+      handler.next(err);
+      return;
+    }
+
+    // The single most common reason a session dies for good: login never gave us
+    // a refresh token, so there is nothing to exchange. Say so plainly rather
+    // than letting it look like the refresh was tried and rejected.
+    if (TokenManager.instance.refreshToken == null) {
+      if (kDebugMode) {
+        debugPrint('[AuthInterceptor] ${options.path} rejected the access token, '
+            'but NO refresh token is stored — cannot refresh, ending session. '
+            'Check that POST /auth/login returns `refresh_token`.');
+      }
+      await _expireSession();
       handler.next(err);
       return;
     }

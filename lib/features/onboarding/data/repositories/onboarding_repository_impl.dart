@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../domain/entities/onboarding_chat.dart';
 import '../../domain/entities/onboarding_draft.dart';
 import '../../domain/entities/onboarding_results.dart';
 import '../../domain/entities/user_profile.dart';
@@ -84,4 +85,20 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   @override
   Future<CompletionResult> complete() async =>
       CompletionResult.fromJson(await _api.complete());
+
+  @override
+  Future<OnboardingChatResponse> startChat({
+    required String patientId,
+    required Map<String, dynamic> onboarding,
+  }) async => OnboardingChatResponse.fromJson(
+    await _api.startChat(patientId: patientId, onboarding: onboarding),
+  );
+
+  @override
+  Future<OnboardingChatResponse> chatTurn({
+    required String sessionId,
+    required String answer,
+  }) async => OnboardingChatResponse.fromJson(
+    await _api.chatTurn(sessionId: sessionId, answer: answer),
+  );
 }

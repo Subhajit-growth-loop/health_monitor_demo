@@ -19,10 +19,11 @@ class NeuSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Container(
       padding: EdgeInsets.all(5.r),
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(16.r),
       ),
       child: Row(
@@ -48,7 +49,7 @@ class NeuSegmentedControl extends StatelessWidget {
                       fontWeight: option == value
                           ? FontWeight.w700
                           : FontWeight.w500,
-                      color: option == value ? Colors.white : Colors.white60,
+                      color: option == value ? Colors.white : s.textMuted,
                     ),
                   ),
                 ),

@@ -23,6 +23,7 @@ class NeuRadioTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     final row = Row(
       children: [
         _RadioRing(selected: selected),
@@ -33,7 +34,7 @@ class NeuRadioTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.sp,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? Colors.white : Colors.white60,
+              color: selected ? s.onSurface : s.textMuted,
             ),
           ),
         ),
@@ -56,10 +57,10 @@ class NeuRadioTile extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         decoration: BoxDecoration(
-          color: NeuColors.darkCard,
+          color: s.card,
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
-            color: selected ? NeuColors.primary : NeuColors.darkBorder,
+            color: selected ? NeuColors.primary : s.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -75,13 +76,14 @@ class _RadioRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Container(
       width: 22.r,
       height: 22.r,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? NeuColors.primary : NeuColors.darkBorder,
+          color: selected ? NeuColors.primary : s.border,
           width: 2,
         ),
       ),

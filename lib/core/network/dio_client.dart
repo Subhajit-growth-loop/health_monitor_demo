@@ -23,8 +23,13 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: AppUrls.baseUrl,
+      // connectTimeout stays short: it covers *reaching* the host, so a genuinely
+      // offline device should fail fast rather than hang for minutes.
       connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      // Generous send/receive budgets — the AI endpoints run an LLM call per
+      // request and a cold start can take far longer than a normal REST reply.
+      sendTimeout: const Duration(seconds: 300),
+      receiveTimeout: const Duration(seconds: 300),
       contentType: 'application/json',
     ),
   );

@@ -1,3 +1,4 @@
+import '../entities/onboarding_chat.dart';
 import '../entities/onboarding_draft.dart';
 import '../entities/onboarding_results.dart';
 import '../entities/user_profile.dart';
@@ -41,4 +42,18 @@ abstract interface class OnboardingRepository {
 
   /// `POST /onboarding/complete` — finalize and fetch the welcome payload.
   Future<CompletionResult> complete();
+
+  /// `POST /onboarding-chat/start` — opens the AI follow-up conversation from
+  /// the structured answers and returns the opening question.
+  Future<OnboardingChatResponse> startChat({
+    required String patientId,
+    required Map<String, dynamic> onboarding,
+  });
+
+  /// `POST /onboarding-chat/turn` — submits an answer; returns the next question
+  /// or the final summary.
+  Future<OnboardingChatResponse> chatTurn({
+    required String sessionId,
+    required String answer,
+  });
 }

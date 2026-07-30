@@ -22,7 +22,7 @@ class NeuTextField extends StatelessWidget {
     this.focusNode,
     this.autofillHints,
     this.errorText,
-    this.dark = false,
+    this.dark,
     this.maxLength,
   });
 
@@ -41,20 +41,22 @@ class NeuTextField extends StatelessWidget {
   final String? errorText;
   final int? maxLength;
 
-  /// When true, uses dark-theme colors (dark surface fill, white text, etc.).
-  final bool dark;
+  /// Forces dark-theme colours. Null (the default) follows the active theme.
+  final bool? dark;
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
+    final dark = this.dark ?? s.isDark;
     final hasError = errorText != null && errorText!.isNotEmpty;
 
     final labelColor = dark
         ? Colors.white.withValues(alpha: 0.87)
         : NeuColors.textDark;
     final inputTextColor = dark ? Colors.white : NeuColors.textDark;
-    final hintColor = dark ? NeuColors.darkTextMuted : NeuColors.textMuted;
-    final fillColor = dark ? NeuColors.darkCard : NeuColors.inputFill;
-    final borderColor = dark ? NeuColors.darkBorder : NeuColors.inputBorder;
+    final hintColor = dark ? s.textMuted : NeuColors.textMuted;
+    final fillColor = dark ? s.card : NeuColors.inputFill;
+    final borderColor = dark ? s.border : NeuColors.inputBorder;
     const focusedBorderColor = NeuColors.primary;
 
     return Column(

@@ -117,11 +117,14 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return NeuBaseScreen(
-      backgroundColor: NeuColors.darkBackground,
-      backgroundImage: 'assets/images/auth_sc_dark_bg.png',
-      lightStatusIcons: true,
-      navigationBarColor: NeuColors.darkBackground,
+      backgroundColor: s.background,
+      backgroundImage: s.isDark
+          ? 'assets/images/auth_sc_dark_bg.png'
+          : 'assets/images/auth_sc_bg.png',
+      lightStatusIcons: s.isDark,
+      navigationBarColor: s.background,
       resizeToAvoidBottomInset: true,
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -133,7 +136,9 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               child: NeuLogo(
                 size: 60.r,
                 color: NeuColors.primary,
-                asset: 'assets/icons/logo_white.png',
+                asset: s.isDark
+                    ? 'assets/icons/logo_white.png'
+                    : 'assets/icons/logo_primary.png',
               ),
             ),
             SizedBox(height: 10.h),
@@ -143,7 +148,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                 style: NeuTypography.serif(
                   fontSize: 40.sp,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: s.onSurface,
                 ),
               ),
             ),
@@ -166,11 +171,10 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
               errorText: _emailError,
-              dark: true,
               onChanged: (_) => setState(() => _emailError = null),
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.mail_outline_rounded,
-                color: NeuColors.darkTextMuted,
+                color: s.textMuted,
                 size: 20,
               ),
             ),
@@ -183,12 +187,11 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.password],
               errorText: _passwordError,
-              dark: true,
               onChanged: (_) => setState(() => _passwordError = null),
               onSubmitted: (_) => _login(),
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.lock_outline_rounded,
-                color: NeuColors.darkTextMuted,
+                color: s.textMuted,
                 size: 20,
               ),
               suffixIcon: IconButton(
@@ -196,7 +199,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                   _obscurePassword
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: NeuColors.darkTextMuted,
+                  color: s.textMuted,
                   size: 20,
                 ),
                 onPressed: () =>
@@ -210,7 +213,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                 'Forgot password?',
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: Colors.white60,
+                  color: s.textMuted,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
                 ),
@@ -232,7 +235,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
                   text: TextSpan(
                     style: TextStyle(
                       fontSize: 14.sp,
-                      color: Colors.white60,
+                      color: s.textMuted,
                     ),
                     children: const [
                       TextSpan(text: 'I have a '),

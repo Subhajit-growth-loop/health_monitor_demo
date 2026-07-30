@@ -9,6 +9,7 @@ import '../../data/repositories/onboarding_repository_impl.dart';
 import '../../domain/entities/health_source.dart';
 import '../../domain/entities/onboarding_draft.dart';
 import '../../domain/entities/onboarding_results.dart';
+import '../../domain/entities/patient_profile_options.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/onboarding_repository.dart';
 
@@ -39,6 +40,37 @@ enum OnboardingStep {
   letter,
   firstAction,
 }
+
+/// The draft fields a step owns — "Save & next" sends only these, not the whole
+/// draft, so one step can never overwrite another's answers.
+///
+/// [OnboardingStep.verifyInfo] contributes nothing: its fields live on the
+/// profile and go to `PATCH /patient/me/details` instead. [OnboardingStep.letter]
+/// is read-only.
+Map<String, dynamic> answersForStep(OnboardingStep step, OnboardingDraft d) =>
+    switch (step) {
+      OnboardingStep.verifyInfo || OnboardingStep.letter =>
+        const <String, dynamic>{},
+      OnboardingStep.motivation => {
+        'motivations': d.motivations,
+        'supportTypes': d.supportTypes,
+      },
+      OnboardingStep.rhythm => {
+        'activityLevel': d.activityLevel,
+        'eatingRhythm': d.eatingRhythm,
+        'sleepHours': d.sleepHours,
+        'dietaryPrefs': d.dietaryPrefs,
+      },
+      OnboardingStep.cycle => {'menstrualCycle': d.menstrualCycle},
+      OnboardingStep.symptoms => {'symptoms': d.symptoms},
+      OnboardingStep.feeling => {'feeling': d.feeling.toJson()},
+      OnboardingStep.note => {'note': d.note},
+      OnboardingStep.connect => {
+        'connectChoice': d.connectChoice,
+        'connectedSources': d.connectedSources,
+      },
+      OnboardingStep.firstAction => {'firstAction': d.firstAction},
+    };
 
 // ── Flow state ───────────────────────────────────────────────────────────────
 
@@ -151,22 +183,25 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
     state = AsyncData(_s.copyWith(profile: updated));
   }
 
-  /// Persist the current draft **and** the step being moved to, so a returning
-  /// user lands here rather than back at step 1. Local (mock-served) storage.
+  /// Persists **only the current screen's answers**, plus the step being moved
+  /// to so a returning user lands here rather than back at step 1. The server
+  /// merges the partial map into the stored draft.
   Future<void> saveAndNext() async {
     if (!state.hasValue) return;
+    final answers = answersForStep(_s.currentStep, _s.draft);
     final next = (_s.stepIndex + 1).clamp(0, _s.steps.length - 1);
-    final saved = await _repo.saveStep(_s.draft.toJson(), stepIndex: next);
+    final saved = await _repo.saveStep(answers, stepIndex: next);
     state = AsyncData(_s.copyWith(draft: saved, stepIndex: next));
   }
 
-  /// Going back is persisted too — otherwise a mid-flow exit would resume at a
-  /// step the user had already navigated away from.
+  /// Going back records the step so a mid-flow exit resumes in the right place,
+  /// and keeps whatever was entered on the screen being left.
   Future<void> back() async {
     if (!state.hasValue || _s.isFirst) return;
+    final answers = answersForStep(_s.currentStep, _s.draft);
     final prev = _s.stepIndex - 1;
     state = AsyncData(_s.copyWith(stepIndex: prev));
-    await _repo.saveStep(_s.draft.toJson(), stepIndex: prev);
+    await _repo.saveStep(answers, stepIndex: prev);
   }
 
   /// `PATCH /patient/me/details` — the Verify-your-information step's only
@@ -176,15 +211,29 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
   Future<void> savePatientDetails() async {
     if (!state.hasValue) return;
     final p = _s.profile;
+    // The multi-selects hold what the user sees, which can include free text
+    // typed into an "Other" box. The API takes enum members only, so coerce at
+    // the boundary: free text becomes `other`, and `none` drops everything else.
+    // Applied to server-loaded values too, so one bad legacy row cannot make
+    // every subsequent save fail.
     final saved = await _repo.savePatientDetails({
       'name': p.fullName,
       'date_of_birth': p.dateOfBirth,
       'gender': p.gender,
       'primary_diagnosis': p.primaryDiagnosis,
       'diagnosed_at': p.diagnosedDate,
-      'other_conditions': p.otherConditions,
-      'current_medications': p.currentMedications,
-      'current_supplements': p.currentSupplements,
+      'other_conditions': PatientProfileOptions.forApi(
+        p.otherConditions,
+        PatientProfileOptions.otherConditions,
+      ),
+      'current_medications': PatientProfileOptions.forApi(
+        p.currentMedications,
+        PatientProfileOptions.medications,
+      ),
+      'current_supplements': PatientProfileOptions.forApi(
+        p.currentSupplements,
+        PatientProfileOptions.supplements,
+      ),
     });
     if (!state.hasValue) return;
     // Keep the auth-derived gender, which drives the dynamic step count.
@@ -199,7 +248,10 @@ class OnboardingController extends AsyncNotifier<OnboardingState> {
 
   /// Finalize: persist the last step's answers, then `POST /onboarding/complete`.
   Future<CompletionResult> complete() async {
-    await _repo.saveStep(_s.draft.toJson(), stepIndex: _s.stepIndex);
+    await _repo.saveStep(
+      answersForStep(_s.currentStep, _s.draft),
+      stepIndex: _s.stepIndex,
+    );
     return _repo.complete();
   }
 }

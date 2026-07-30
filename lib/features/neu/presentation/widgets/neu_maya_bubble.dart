@@ -12,10 +12,11 @@ class NeuMayaBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     // Dark surface box with an orange left-border strip.
     return Container(
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.all(
           Radius.circular(16.r),
         ),

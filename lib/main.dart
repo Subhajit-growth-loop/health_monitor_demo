@@ -11,6 +11,7 @@ import 'core/session/app_error_handler.dart';
 import 'core/session/current_user.dart';
 import 'core/session/token_manager.dart';
 import 'core/settings/app_settings.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/health/presentation/providers/health_providers.dart';
 import 'features/health/presentation/screens/sync_settings_screen.dart';
 import 'features/neu/presentation/screens/neu_login_screen.dart';
@@ -26,6 +27,10 @@ Future<void> main() async {
   // Initialise singletons that need SharedPreferences
   TokenManager.instance.init(prefs);
   CurrentUser.instance.init(prefs);
+
+  // One-time: clear a `dark` saved from when dark was the default, so this build
+  // opens light. The Dark mode switch is respected normally from here on.
+  await ThemeModeNotifier.resetToLightOnce(prefs);
 
   // When any API call returns 401, clear the session and push to login.
   AppErrorHandler.instance.onSessionExpired = () async {

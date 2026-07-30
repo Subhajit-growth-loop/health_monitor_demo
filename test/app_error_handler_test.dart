@@ -66,6 +66,59 @@ void main() {
       );
     });
 
+    test('422 error.details name the offending fields', () {
+      // The real 422 from PATCH /patient/me/details. The parent message alone
+      // ("The submitted data is invalid.") does not say what to fix.
+      final msg = handler.handle(_err(422, {
+        'error': {
+          'code': 'validation_error',
+          'message': 'The submitted data is invalid.',
+          'details': [
+            {
+              'field': 'other_conditions',
+              'message': "Value error, 'none' cannot be combined with other values",
+              'type': 'value_error',
+            },
+            {
+              'field': 'current_supplements.6',
+              'message': "Input should be 'vitamin_d' or 'other'",
+              'type': 'enum',
+            },
+          ],
+        }
+      }))!;
+
+      expect(msg, contains('Other conditions:'));
+      expect(msg, contains("'none' cannot be combined"));
+      // The array index is noise to the reader.
+      expect(msg, contains('Current supplements:'));
+      expect(msg, isNot(contains('.6')));
+      expect(msg, isNot(contains('The submitted data is invalid')));
+    });
+
+    test('a detail with no field still surfaces its message', () {
+      expect(
+        handler.handle(_err(422, {
+          'error': {
+            'message': 'Invalid',
+            'details': [
+              {'message': 'Date of birth must be in the past'},
+            ],
+          }
+        })),
+        'Date of birth must be in the past',
+      );
+    });
+
+    test('empty details fall back to the parent message', () {
+      expect(
+        handler.handle(_err(422, {
+          'error': {'message': 'Could not save your details.', 'details': []}
+        })),
+        'Could not save your details.',
+      );
+    });
+
     test('field-keyed validation errors are joined', () {
       final msg = handler.handle(_err(422, {
         'errors': {

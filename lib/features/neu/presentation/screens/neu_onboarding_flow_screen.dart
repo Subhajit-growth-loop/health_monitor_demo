@@ -9,7 +9,10 @@ import '../../../../../core/settings/app_settings.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
 import '../../../onboarding/domain/entities/onboarding_draft.dart';
+import '../../../onboarding/domain/entities/onboarding_chat.dart';
 import '../../../onboarding/domain/entities/onboarding_results.dart';
+import '../../../onboarding/domain/entities/patient_profile_options.dart';
+import '../../../onboarding/presentation/providers/onboarding_chat_controller.dart';
 import '../../../onboarding/domain/entities/user_profile.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 import '../../../health/presentation/screens/dashboard_screen.dart';
@@ -100,37 +103,13 @@ const _firstActions = [
   ),
 ];
 
-const _primaryDiagnosisOptions = [
-  ('masld', 'MASLD'), ('mash', 'MASH'), ('prediabetes', 'Prediabetes'),
-  ('type_2_diabetes', 'Type 2 Diabetes'), ('obesity', 'Obesity'),
-  ('metabolic_syndrome', 'Metabolic Syndrome'), ('pcos', 'PCOS'),
-  ('hypertension', 'Hypertension'), ('high_cholesterol', 'High Cholesterol'),
-  ('none', 'None of the above'),
-];
-
-const _otherConditionsOptions = [
-  ('prediabetes', 'Prediabetes'), ('type_2_diabetes', 'Type 2 Diabetes'),
-  ('hypertension', 'Hypertension'), ('high_cholesterol', 'High Cholesterol'),
-  ('obesity', 'Obesity'), ('pcos', 'PCOS'), ('sleep_apnea', 'Sleep Apnea'),
-  ('hypothyroidism', 'Hypothyroidism'), ('depression', 'Depression'),
-  ('anxiety', 'Anxiety'), ('none', 'None'),
-];
-
-const _medicationsOptions = [
-  ('metformin', 'Metformin'), ('ozempic', 'Ozempic (Semaglutide)'),
-  ('mounjaro', 'Mounjaro (Tirzepatide)'), ('wegovy', 'Wegovy'),
-  ('jardiance', 'Jardiance'), ('insulin', 'Insulin'), ('statin', 'Statin'),
-  ('blood_pressure_medication', 'Blood Pressure Medication'),
-  ('none', 'None'), ('other', 'Other'),
-];
-
-const _supplementsOptions = [
-  ('vitamin_d', 'Vitamin D'), ('vitamin_b12', 'Vitamin B12'),
-  ('omega_3', 'Omega-3'), ('magnesium', 'Magnesium'),
-  ('probiotics', 'Probiotics'), ('milk_thistle', 'Milk Thistle'),
-  ('turmeric', 'Turmeric / Curcumin'), ('multivitamin', 'Multivitamin'),
-  ('none', 'None'), ('other', 'Other'),
-];
+// The medical-profile option lists live in PatientProfileOptions, which is the
+// single source of truth shared with the API layer — the values are backend
+// enums, so a copy here would drift into 422s.
+const _primaryDiagnosisOptions = PatientProfileOptions.primaryDiagnosis;
+const _otherConditionsOptions = PatientProfileOptions.otherConditions;
+const _medicationsOptions = PatientProfileOptions.medications;
+const _supplementsOptions = PatientProfileOptions.supplements;
 
 const _genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
@@ -181,6 +160,7 @@ class _NeuOnboardingFlowScreenState
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     ref.listen(onboardingControllerProvider, (_, next) {
       if (next.hasError && mounted) {
         final msg = AppErrorHandler.instance.handle(
@@ -203,14 +183,14 @@ class _NeuOnboardingFlowScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded,
-                color: NeuColors.darkTextMuted, size: 48),
+            Icon(Icons.wifi_off_rounded,
+                color: s.textMuted, size: 48),
             SizedBox(height: 16.h),
             Text(
               'Could not load your onboarding data.\nCheck your connection and try again.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 14.sp, color: NeuColors.darkTextMuted, height: 1.5),
+                  fontSize: 14.sp, color: s.textMuted, height: 1.5),
             ),
             SizedBox(height: 24.h),
             FilledButton(
@@ -311,13 +291,25 @@ class _NeuOnboardingFlowScreenState
     switch (state.currentStep) {
       case OnboardingStep.verifyInfo:
         final p = state.profile;
+        // Check what will actually be *sent*, not what is selected locally:
+        // picking only "Other" without typing a name sanitizes to an empty
+        // array, so the CTA must stay locked until there's a real answer.
         return p.dateOfBirth.isNotEmpty &&
             p.gender.isNotEmpty &&
             p.primaryDiagnosis.isNotEmpty &&
             p.diagnosedDate.isNotEmpty &&
-            p.otherConditions.isNotEmpty &&
-            p.currentMedications.isNotEmpty &&
-            p.currentSupplements.isNotEmpty;
+            PatientProfileOptions.forApi(
+              p.otherConditions,
+              PatientProfileOptions.otherConditions,
+            ).isNotEmpty &&
+            PatientProfileOptions.forApi(
+              p.currentMedications,
+              PatientProfileOptions.medications,
+            ).isNotEmpty &&
+            PatientProfileOptions.forApi(
+              p.currentSupplements,
+              PatientProfileOptions.supplements,
+            ).isNotEmpty;
       case OnboardingStep.feeling: // sliders always carry a value
       case OnboardingStep.letter: // read-only
         return true;
@@ -332,7 +324,8 @@ class _NeuOnboardingFlowScreenState
       case OnboardingStep.symptoms:
         return d.symptoms.isNotEmpty;
       case OnboardingStep.note:
-        return d.note.trim().isNotEmpty;
+        // Unlocked only when the AI reports the conversation finished.
+        return ref.watch(onboardingChatControllerProvider).done;
       case OnboardingStep.connect:
         return d.connectChoice != null;
       case OnboardingStep.firstAction:
@@ -483,10 +476,11 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
     required String selected,
     required void Function(String) onSelected,
   }) async {
+    final s = NeuSurface.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: NeuColors.darkCard,
+      backgroundColor: s.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
       builder: (_) => _SingleSelectSheet(title: title, options: options, selected: selected, onSelected: onSelected),
     );
@@ -499,10 +493,11 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
     required List<String> selected,
     required void Function(List<String>) onConfirm,
   }) async {
+    final s = NeuSurface.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: NeuColors.darkCard,
+      backgroundColor: s.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
       builder: (_) => _MultiSelectSheet(title: title, options: options, selected: selected, onConfirm: onConfirm),
     );
@@ -510,6 +505,7 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     final profile = ref.watch(onboardingControllerProvider).value!.profile;
 
     String labelOf(List<(String, String)> options, String value) {
@@ -538,14 +534,14 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
 
     return Container(
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.darkBorder),
+        border: Border.all(color: s.border),
       ),
       child: Column(
         children: [
           for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) Divider(height: 1, color: NeuColors.darkBorder.withValues(alpha: 0.6)),
+            if (i > 0) Divider(height: 1, color: s.border.withValues(alpha: 0.6)),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
               child: Row(
@@ -555,18 +551,18 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(rows[i].label, style: TextStyle(fontSize: 12.sp, color: NeuColors.darkTextMuted)),
+                        Text(rows[i].label, style: TextStyle(fontSize: 12.sp, color: s.textMuted)),
                         SizedBox(height: 4.h),
                         if (_editingKey == rows[i].key && rows[i].isText)
                           TextField(
                             controller: _textCtrl,
                             autofocus: true,
-                            style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: Colors.white),
+                            style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: s.onSurface),
                             decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 4), border: InputBorder.none),
                             onSubmitted: (_) => _saveText(rows[i].key),
                           )
                         else
-                          Text(rows[i].display, style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+                          Text(rows[i].display, style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w700, color: s.onSurface)),
                       ],
                     ),
                   ),
@@ -585,7 +581,7 @@ class _VerifyInfoStepState extends ConsumerState<_VerifyInfoStep> {
                     },
                     child: _editingKey == rows[i].key && rows[i].isText
                         ? Icon(Icons.check_rounded, color: NeuColors.primary, size: 22.r)
-                        : Icon(Icons.edit_outlined, color: NeuColors.darkTextMuted, size: 20.r),
+                        : Icon(Icons.edit_outlined, color: s.textMuted, size: 20.r),
                   ),
                 ],
               ),
@@ -616,6 +612,7 @@ class _SingleSelectSheetState extends State<_SingleSelectSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
@@ -623,7 +620,7 @@ class _SingleSelectSheetState extends State<_SingleSelectSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: s.onSurface)),
             SizedBox(height: 16.h),
             for (final (value, label) in widget.options) ...[
               GestureDetector(
@@ -637,13 +634,13 @@ class _SingleSelectSheetState extends State<_SingleSelectSheet> {
                   padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
                   margin: EdgeInsets.only(bottom: 8.h),
                   decoration: BoxDecoration(
-                    color: _current == value ? NeuColors.primary.withValues(alpha: 0.15) : NeuColors.darkBackground,
+                    color: _current == value ? NeuColors.primary.withValues(alpha: 0.15) : s.background,
                     borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(color: _current == value ? NeuColors.primary : NeuColors.darkBorder),
+                    border: Border.all(color: _current == value ? NeuColors.primary : s.border),
                   ),
                   child: Row(
                     children: [
-                      Expanded(child: Text(label, style: TextStyle(fontSize: 14.sp, color: Colors.white, fontWeight: FontWeight.w500))),
+                      Expanded(child: Text(label, style: TextStyle(fontSize: 14.sp, color: s.onSurface, fontWeight: FontWeight.w500))),
                       if (_current == value) Icon(Icons.check_rounded, color: NeuColors.primary, size: 18.r),
                     ],
                   ),
@@ -670,15 +667,26 @@ class _MultiSelectSheet extends StatefulWidget {
 
 class _MultiSelectSheetState extends State<_MultiSelectSheet> {
   late List<String> _current;
+
+  /// Values the user typed into the "Other" box. Rendered as chips after the
+  /// built-in options, so a confirmed entry becomes a real, toggleable option.
+  late List<String> _custom;
+
   final _otherCtrl = TextEditingController();
+
+  /// Whether the "Other" text field is showing. Driven by tapping the Other
+  /// chip, not by selection state — adding a value closes it, tapping Other
+  /// again reopens it so several can be entered.
+  bool _showOtherInput = false;
 
   @override
   void initState() {
     super.initState();
     _current = List.from(widget.selected);
+    // Anything already selected that isn't a known option is a previously typed
+    // value — restore all of them as chips, not just the first.
     final optionValues = widget.options.map((o) => o.$1).toSet();
-    final custom = _current.where((v) => !optionValues.contains(v)).firstOrNull;
-    if (custom != null) _otherCtrl.text = custom;
+    _custom = _current.where((v) => !optionValues.contains(v)).toList();
   }
 
   @override
@@ -688,25 +696,138 @@ class _MultiSelectSheetState extends State<_MultiSelectSheet> {
     setState(() {
       if (_current.contains(value)) {
         _current.remove(value);
+        return;
+      }
+      // The server rejects `none` alongside anything else, so make it exclusive
+      // here instead of letting the user build an invalid selection.
+      if (value == PatientProfileOptions.noneValue) {
+        _current = [value];
+        _custom = [];
+        _showOtherInput = false;
+        _otherCtrl.clear();
       } else {
-        _current.add(value);
+        _current
+          ..remove(PatientProfileOptions.noneValue)
+          ..add(value);
       }
     });
   }
 
+  /// The Other chip is a trigger for the text field rather than a value to
+  /// toggle — tapping it opens the box, tapping again closes it.
+  void _tapOther() {
+    setState(() {
+      _showOtherInput = !_showOtherInput;
+      if (!_showOtherInput) _otherCtrl.clear();
+      if (_showOtherInput) {
+        // Selecting anything clears an exclusive `none`.
+        _current.remove(PatientProfileOptions.noneValue);
+      }
+    });
+  }
+
+  /// Commits what was typed: it becomes a selected chip and the box closes.
+  void _addCustom() {
+    final text = _otherCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      final known = widget.options.map((o) => o.$1.toLowerCase()).toSet();
+      final existing = _custom.firstWhere(
+        (c) => c.toLowerCase() == text.toLowerCase(),
+        orElse: () => '',
+      );
+
+      if (known.contains(text.toLowerCase())) {
+        // Typed the name of a built-in option — just select that instead of
+        // creating a duplicate chip.
+        final match = widget.options
+            .firstWhere((o) => o.$1.toLowerCase() == text.toLowerCase());
+        if (!_current.contains(match.$1)) _current.add(match.$1);
+      } else if (existing.isNotEmpty) {
+        // Already added — re-select rather than duplicating.
+        if (!_current.contains(existing)) _current.add(existing);
+      } else {
+        _custom.add(text);
+        _current.add(text);
+      }
+
+      _current.remove(PatientProfileOptions.noneValue);
+      _otherCtrl.clear();
+      _showOtherInput = false;
+    });
+  }
+
+  /// Removes a typed value entirely (chip and selection).
+  void _removeCustom(String value) {
+    setState(() {
+      _custom.remove(value);
+      _current.remove(value);
+    });
+  }
+
   void _confirm() {
-    var values = List<String>.from(_current);
-    if (values.contains('other') && _otherCtrl.text.trim().isNotEmpty) {
-      values.remove('other');
-      values.add(_otherCtrl.text.trim());
-    }
-    widget.onConfirm(values);
+    // Custom values are already in _current; the API layer maps them to the
+    // `other` enum member via PatientProfileOptions.forApi.
+    widget.onConfirm(List<String>.from(_current));
     Navigator.pop(context);
+  }
+
+  bool get _hasOtherOption =>
+      widget.options.any((o) => o.$1 == PatientProfileOptions.otherValue);
+
+  /// One option chip. [onRemove] adds a small × for user-added values.
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    VoidCallback? onRemove,
+  }) {
+    final s = NeuSurface.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+        decoration: BoxDecoration(
+          color: selected
+              ? NeuColors.primary.withValues(alpha: 0.15)
+              : s.background,
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(
+            color: selected ? NeuColors.primary : s.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.sp,
+                color: selected ? NeuColors.primary : s.onSurface,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            if (onRemove != null) ...[
+              SizedBox(width: 6.w),
+              GestureDetector(
+                onTap: onRemove,
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 15.r,
+                  color: selected ? NeuColors.primary : s.textMuted,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final showOtherInput = _current.contains('other');
+    final s = NeuSurface.of(context);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
@@ -714,7 +835,7 @@ class _MultiSelectSheetState extends State<_MultiSelectSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text(widget.title, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: s.onSurface)),
             SizedBox(height: 16.h),
             Flexible(
               child: SingleChildScrollView(
@@ -725,36 +846,59 @@ class _MultiSelectSheetState extends State<_MultiSelectSheet> {
                       runSpacing: 10.h,
                       children: [
                         for (final (value, label) in widget.options)
-                          GestureDetector(
-                            onTap: () => _toggle(value),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                              decoration: BoxDecoration(
-                                color: _current.contains(value) ? NeuColors.primary.withValues(alpha: 0.15) : NeuColors.darkBackground,
-                                borderRadius: BorderRadius.circular(10.r),
-                                border: Border.all(color: _current.contains(value) ? NeuColors.primary : NeuColors.darkBorder),
-                              ),
-                              child: Text(label, style: TextStyle(fontSize: 13.sp, color: _current.contains(value) ? NeuColors.primary : Colors.white, fontWeight: _current.contains(value) ? FontWeight.w600 : FontWeight.w400)),
+                          // The Other chip opens the text box instead of
+                          // toggling a value of its own.
+                          if (value == PatientProfileOptions.otherValue)
+                            _chip(
+                              label: label,
+                              selected: _showOtherInput ||
+                                  _current.contains(value),
+                              onTap: _tapOther,
+                            )
+                          else
+                            _chip(
+                              label: label,
+                              selected: _current.contains(value),
+                              onTap: () => _toggle(value),
                             ),
+                        // Values the user typed, now first-class options.
+                        for (final value in _custom)
+                          _chip(
+                            label: value,
+                            selected: _current.contains(value),
+                            onTap: () => _toggle(value),
+                            onRemove: () => _removeCustom(value),
                           ),
                       ],
                     ),
-                    if (showOtherInput) ...[
+                    if (_showOtherInput && _hasOtherOption) ...[
                       SizedBox(height: 14.h),
                       TextField(
                         controller: _otherCtrl,
                         autofocus: true,
-                        style: const TextStyle(color: Colors.white),
+                        textInputAction: TextInputAction.done,
+                        // Enter commits, same as the add button.
+                        onSubmitted: (_) => _addCustom(),
+                        style: TextStyle(color: s.onSurface),
                         decoration: InputDecoration(
-                          hintText: 'Describe...',
-                          hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
+                          hintText: 'Type a name, then tap +',
+                          hintStyle: TextStyle(color: s.textMuted),
                           filled: true,
-                          fillColor: NeuColors.darkBackground,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: NeuColors.darkBorder)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: NeuColors.darkBorder)),
+                          fillColor: s.background,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: s.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide(color: s.border)),
                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: NeuColors.primary)),
                           contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                           isDense: true,
+                          suffixIcon: IconButton(
+                            onPressed: _addCustom,
+                            icon: Icon(
+                              Icons.add_circle_rounded,
+                              color: NeuColors.primary,
+                              size: 22.r,
+                            ),
+                            tooltip: 'Add',
+                          ),
                         ),
                       ),
                     ],
@@ -846,6 +990,7 @@ class _MotivationStepState extends State<_MotivationStep> {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -865,19 +1010,19 @@ class _MotivationStepState extends State<_MotivationStep> {
                 controller: _otherCtrl,
                 autofocus: true,
                 onChanged: _onOtherTextChanged,
-                style: TextStyle(color: Colors.white, fontSize: 14.sp),
+                style: TextStyle(color: s.onSurface, fontSize: 14.sp),
                 decoration: InputDecoration(
                   hintText: 'Describe your reason…',
-                  hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
+                  hintStyle: TextStyle(color: s.textMuted),
                   filled: true,
-                  fillColor: NeuColors.darkBackground,
+                  fillColor: s.background,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.r),
-                    borderSide: const BorderSide(color: NeuColors.darkBorder),
+                    borderSide: BorderSide(color: s.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.r),
-                    borderSide: const BorderSide(color: NeuColors.darkBorder),
+                    borderSide: BorderSide(color: s.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.r),
@@ -899,7 +1044,7 @@ class _MotivationStepState extends State<_MotivationStep> {
           style: NeuTypography.serif(
             fontSize: 18.sp,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: s.onSurface,
           ),
         ),
         SizedBox(height: 16.h),
@@ -1113,8 +1258,11 @@ class _FeelingStep extends StatelessWidget {
   }
 }
 
-// ── Step 7: Chatbot ──────────────────────────────────────────────────────────
+// ── Step 7: AI follow-up chat ────────────────────────────────────────────────
 
+/// The AI onboarding conversation: `/onboarding-chat/start` on open, then
+/// `/onboarding-chat/turn` per answer. The step's CTA stays locked until the
+/// server reports `done: true`.
 class _NoteStep extends ConsumerStatefulWidget {
   const _NoteStep();
 
@@ -1126,140 +1274,428 @@ class _NoteStepState extends ConsumerState<_NoteStep> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
 
-  /// The conversation, persisted into `draft.note` (newline-joined).
-  late List<String> _messages;
+  /// Whether the field holds something other than whitespace. Tracked as state
+  /// rather than read inline so the send button repaints as the user types.
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
-    final draft = ref.read(onboardingControllerProvider).value!.draft;
-    _messages = draft.note
-        .split('\n')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    _controller.addListener(_onTextChanged);
+    // Open the conversation as soon as the step is shown. start() no-ops if a
+    // session already exists, so navigating back and forth won't restart it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(onboardingChatControllerProvider.notifier).start();
+    });
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
+  /// Only rebuilds when the empty/non-empty state actually flips, not on every
+  /// keystroke.
+  void _onTextChanged() {
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (hasText != _hasText) setState(() => _hasText = hasText);
+  }
+
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      _messages.add(text);
-      _controller.clear();
-    });
-    ref
-        .read(onboardingControllerProvider.notifier)
-        .editDraft(
-          ref
-              .read(onboardingControllerProvider)
-              .value!
-              .draft
-              .copyWith(note: _messages.join('\n')),
-        );
+    _controller.clear();
+    ref.read(onboardingChatControllerProvider.notifier).send(text);
+  }
+
+  void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
+    final chat = ref.watch(onboardingChatControllerProvider);
+    // Keep the newest bubble in view as the conversation grows.
+    ref.listen(onboardingChatControllerProvider, (prev, next) {
+      if (prev?.messages.length != next.messages.length) _scrollToEnd();
+    });
+
     return Container(
       height: 380.h,
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.darkBorder),
+        border: Border.all(color: s.border),
       ),
       child: Column(
         children: [
+          Expanded(child: _body(chat)),
+          Divider(height: 1, color: s.border),
+          _composer(chat),
+        ],
+      ),
+    );
+  }
+
+  Widget _body(OnboardingChatState chat) {
+    final s = NeuSurface.of(context);
+    if (chat.starting && chat.messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 22.r,
+              height: 22.r,
+              child: const CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: NeuColors.primary,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              'Reading your answers…',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: s.textMuted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Opening call failed — nothing to talk to yet, so offer a retry.
+    if (chat.messages.isEmpty && chat.error != null) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.cloud_off_rounded,
+                color: s.textMuted,
+                size: 32.r,
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                chat.error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  color: s.textMuted,
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              FilledButton(
+                onPressed: () => ref
+                    .read(onboardingChatControllerProvider.notifier)
+                    .retryStart(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: NeuColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                ),
+                child: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // One trailing slot for the typing indicator, then one for an inline error.
+    final extra = (chat.sending ? 1 : 0) + (chat.error != null ? 1 : 0);
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.all(14.r),
+      itemCount: chat.messages.length + extra,
+      itemBuilder: (_, i) {
+        if (i < chat.messages.length) {
+          return _Bubble(message: chat.messages[i]);
+        }
+        if (chat.sending && i == chat.messages.length) {
+          return const _TypingBubble();
+        }
+        // No session left means it expired server-side — a retry of the same
+        // turn would 404 again, so offer a fresh conversation instead.
+        return _InlineError(
+          message: chat.error!,
+          actionLabel: chat.sessionId == null ? 'Start a new conversation' : null,
+          onRetry: chat.sessionId == null
+              ? () => ref
+                  .read(onboardingChatControllerProvider.notifier)
+                  .restart()
+              : null,
+        );
+      },
+    );
+  }
+
+  Widget _composer(OnboardingChatState chat) {
+    final s = NeuSurface.of(context);
+    // Typing is allowed whenever the session is open…
+    final canType = chat.canAnswer;
+    // …but sending needs something to send.
+    final canSend = canType && _hasText;
+    final String hint;
+    if (chat.done) {
+      hint = 'Conversation complete';
+    } else if (chat.sessionId == null) {
+      // "Connecting…" would be a lie once the session is gone — the field only
+      // wakes up after the patient taps "Start a new conversation".
+      hint = chat.error != null ? 'Not connected' : 'Connecting…';
+    } else {
+      hint = 'Type a message…';
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12.w, 8.h, 8.w, 8.h),
+      child: Row(
+        children: [
           Expanded(
-            child: _messages.isEmpty
-                ? const SizedBox.expand()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: EdgeInsets.all(14.r),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, i) => Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        margin: EdgeInsets.only(bottom: 8.h),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14.w,
-                          vertical: 10.h,
-                        ),
-                        constraints: BoxConstraints(maxWidth: 240.w),
-                        decoration: BoxDecoration(
-                          color: NeuColors.primary,
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        child: Text(
-                          _messages[i],
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+            child: TextField(
+              controller: _controller,
+              enabled: canType,
+              textInputAction: TextInputAction.send,
+              // 4000 is the server's documented ceiling for `answer`.
+              maxLength: 4000,
+              maxLines: 4,
+              minLines: 1,
+              onSubmitted: (_) => _send(),
+              style: TextStyle(color: s.onSurface),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(color: s.textMuted),
+                border: InputBorder.none,
+                isDense: true,
+                counterText: '',
+              ),
+            ),
           ),
-          Divider(
-            height: 1,
-            color: NeuColors.darkBorder,
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 8.h, 8.w, 8.h),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Type a message…',
-                      hintStyle: const TextStyle(color: NeuColors.darkTextMuted),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.mic_none_rounded,
-                  color: NeuColors.darkTextMuted,
-                  size: 22,
-                ),
-                SizedBox(width: 8.w),
-                GestureDetector(
-                  onTap: _send,
-                  child: Container(
-                    width: 38.r,
-                    height: 38.r,
-                    decoration: const BoxDecoration(
-                      color: NeuColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.send_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
+          SizedBox(width: 8.w),
+          GestureDetector(
+            onTap: canSend ? _send : null,
+            child: Container(
+              width: 38.r,
+              height: 38.r,
+              decoration: BoxDecoration(
+                color: canSend
+                    ? NeuColors.primary
+                    : s.border.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+              ),
+              // No spinner here — the wait is shown by the "Thinking…" bubble in
+              // the transcript, so the button just stays put.
+              child: Icon(
+                chat.done ? Icons.check_rounded : Icons.send_rounded,
+                color: canSend
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.5),
+                size: 18,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A single conversation bubble — the coach on the left, the patient on the
+/// right.
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.message});
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
+    final fromPatient = message.fromPatient;
+    return Align(
+      alignment: fromPatient ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+        constraints: BoxConstraints(maxWidth: 250.w),
+        decoration: BoxDecoration(
+          color: fromPatient ? NeuColors.primary : s.background,
+          borderRadius: BorderRadius.circular(16.r),
+          border: fromPatient
+              ? null
+              : Border.all(color: s.border),
+        ),
+        child: Text(
+          message.text,
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: fromPatient ? Colors.white : s.onSurface,
+            height: 1.35,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown while a `/turn` call is in flight — the API documents 2-5s latency, so
+/// the wait needs to be visible. Reads as "Maya is thinking" rather than a
+/// generic spinner: three dots pulse in sequence, which suits a conversation
+/// better than a progress indicator that implies measurable progress.
+class _TypingBubble extends StatefulWidget {
+  const _TypingBubble();
+
+  @override
+  State<_TypingBubble> createState() => _TypingBubbleState();
+}
+
+class _TypingBubbleState extends State<_TypingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Opacity for dot [i], staggered so the wave travels left to right.
+  double _dotOpacity(int i) {
+    const dots = 3;
+    final phase = (_controller.value - (i / dots)) % 1.0;
+    // Ramp up over the first third of each dot's slot, then fade back.
+    final eased = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+    return 0.3 + 0.7 * eased.clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+        decoration: BoxDecoration(
+          color: s.background,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: s.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Thinking',
+              style: TextStyle(
+                fontSize: 13.sp,
+                color: s.textMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (_, _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < 3; i++) ...[
+                    if (i > 0) SizedBox(width: 4.w),
+                    Container(
+                      width: 6.r,
+                      height: 6.r,
+                      decoration: BoxDecoration(
+                        color: NeuColors.primary.withValues(
+                          alpha: _dotOpacity(i),
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A failed turn, shown in the transcript so the patient's typed answer isn't
+/// silently lost.
+class _InlineError extends StatelessWidget {
+  const _InlineError({
+    required this.message,
+    this.onRetry,
+    this.actionLabel,
+  });
+  final String message;
+  final VoidCallback? onRetry;
+
+  /// Defaults to a plain retry; an expired session says "start a new one"
+  /// instead, since retrying the same turn cannot succeed.
+  final String? actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+        constraints: BoxConstraints(maxWidth: 260.w),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD63031).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: const Color(0xFFD63031).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: const Color(0xFFFF7675),
+                height: 1.35,
+              ),
+            ),
+            if (onRetry != null) ...[
+              SizedBox(height: 6.h),
+              GestureDetector(
+                onTap: onRetry,
+                child: Text(
+                  actionLabel ?? 'Try again',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: NeuColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1337,6 +1773,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     final sourcesAsync = ref.watch(connectedSourcesProvider);
 
     // When sources load: auto-select single-source categories, then sync.
@@ -1378,7 +1815,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
           child: Text(
             'You can connect additional sources from Settings at any time.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13.sp, color: NeuColors.darkTextMuted),
+            style: TextStyle(fontSize: 13.sp, color: s.textMuted),
           ),
         ),
       ],
@@ -1403,6 +1840,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
     IconData icon,
     List<HealthSource> allSources,
   ) {
+    final surface = NeuSurface.of(context);
     final catSources =
         allSources.where((s) => s.hasCategory(catKey)).toList();
 
@@ -1430,7 +1868,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: surface.onSurface,
               ),
             ),
             if (typeLabels.isNotEmpty) ...[
@@ -1440,7 +1878,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
                   '(${typeLabels.join(', ')})',
                   style: TextStyle(
                     fontSize: 12.5.sp,
-                    color: NeuColors.darkTextMuted,
+                    color: surface.textMuted,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1453,7 +1891,7 @@ class _ConnectStepState extends ConsumerState<_ConnectStep> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
             decoration: BoxDecoration(
-              color: NeuColors.darkCard,
+              color: surface.card,
               borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
                 color: NeuColors.primary.withValues(alpha: 0.4),
@@ -1509,6 +1947,7 @@ class _DetectingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Row(
       children: [
         const SizedBox(
@@ -1522,7 +1961,7 @@ class _DetectingRow extends StatelessWidget {
         SizedBox(width: 12.w),
         Text(
           'Checking your connected apps…',
-          style: TextStyle(fontSize: 15.sp, color: Colors.white60),
+          style: TextStyle(fontSize: 15.sp, color: s.textMuted),
         ),
       ],
     );
@@ -1535,18 +1974,19 @@ class _ConnectMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.accent,
         borderRadius: BorderRadius.circular(14.r),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
-            color: NeuColors.primary,
+            color: s.emphasis,
             size: 20,
           ),
           SizedBox(width: 12.w),
@@ -1555,7 +1995,7 @@ class _ConnectMessage extends StatelessWidget {
               text,
               style: TextStyle(
                 fontSize: 14.sp,
-                color: NeuColors.primary,
+                color: s.emphasis,
                 height: 1.4,
               ),
             ),
@@ -1572,19 +2012,20 @@ class _NoSourceMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Container(
       padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
             size: 18,
-            color: NeuColors.darkTextMuted,
+            color: s.textMuted,
           ),
           SizedBox(width: 10.w),
           Expanded(
@@ -1593,7 +2034,7 @@ class _NoSourceMessage extends StatelessWidget {
               'from Settings later.',
               style: TextStyle(
                 fontSize: 13.sp,
-                color: NeuColors.darkTextMuted,
+                color: s.textMuted,
                 height: 1.4,
               ),
             ),
@@ -1606,11 +2047,11 @@ class _NoSourceMessage extends StatelessWidget {
 
 // ── Step 9: Letter ───────────────────────────────────────────────────────────
 
-class _LetterStep extends StatelessWidget {
+class _LetterStep extends ConsumerWidget {
   const _LetterStep();
 
-  static const _letter =
-      "Hi, I'm Maya — your AI-enabled wellness coach. ✨\n\n"
+  static const _body =
+      "I'm Maya — your AI-enabled wellness coach. ✨\n\n"
       "If you've been diagnosed with MASLD, insulin resistance, or metabolic "
       "dysfunction, you're not alone. Millions of people are navigating "
       "fatigue, inflammation, weight changes, cravings, poor sleep, and "
@@ -1628,20 +2069,31 @@ class _LetterStep extends StatelessWidget {
       "With warmth,\nMaya ✨";
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = NeuSurface.of(context);
+    // Prefer the name on the verified profile (the user may have corrected it on
+    // step 1); fall back to the name the auth response stored. Greets without a
+    // name rather than showing a placeholder if neither is set.
+    final profileName =
+        ref.watch(onboardingControllerProvider).valueOrNull?.profile.firstName ??
+            '';
+    final firstName =
+        profileName.isNotEmpty ? profileName : CurrentUser.instance.firstName;
+    final greeting = firstName.isEmpty ? 'Hi, ' : 'Hi $firstName, ';
+
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: NeuColors.darkCard,
+        color: s.card,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: NeuColors.darkBorder),
+        border: Border.all(color: s.border),
       ),
       child: Text(
-        _letter,
+        '$greeting$_body',
         style: TextStyle(
           fontSize: 14.5.sp,
           height: 1.5,
-          color: Colors.white.withValues(alpha: 0.9),
+          color: s.onSurface.withValues(alpha: 0.9),
         ),
       ),
     );
@@ -1683,6 +2135,7 @@ class NeuOnboardingCompleteScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = NeuSurface.of(context);
     return NeuOnboardingShell(
       progress: 1,
       stepLabel: 'COMPLETE',
@@ -1703,16 +2156,16 @@ class NeuOnboardingCompleteScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 15.sp,
               height: 1.5,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: s.onSurface.withValues(alpha: 0.9),
             ),
           ),
           SizedBox(height: 20.h),
           Container(
             padding: EdgeInsets.all(18.r),
             decoration: BoxDecoration(
-              color: NeuColors.darkCard,
+              color: s.card,
               borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: NeuColors.darkBorder),
+              border: Border.all(color: s.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1722,7 +2175,7 @@ class NeuOnboardingCompleteScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 12.5.sp,
                     fontWeight: FontWeight.w700,
-                    color: NeuColors.primary,
+                    color: s.emphasis,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -1747,6 +2200,7 @@ class _NextRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1776,7 +2230,7 @@ class _NextRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15.sp,
                 height: 1.4,
-                color: Colors.white.withValues(alpha: 0.9),
+                color: s.onSurface.withValues(alpha: 0.9),
               ),
             ),
           ),
@@ -1794,6 +2248,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Padding(
       padding: EdgeInsets.only(bottom: 12.h),
       child: Text(
@@ -1801,7 +2256,7 @@ class _SectionLabel extends StatelessWidget {
         style: NeuTypography.serif(
           fontSize: 17.sp,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: s.onSurface,
         ),
       ),
     );
@@ -1814,9 +2269,10 @@ class _CenteredMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return NeuBaseScreen(
-      backgroundColor: NeuColors.darkBackground,
-      lightStatusIcons: true,
+      backgroundColor: s.background,
+      lightStatusIcons: s.isDark,
       child: Padding(
         padding: EdgeInsets.all(32.r),
         child: Center(child: child),

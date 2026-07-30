@@ -20,16 +20,17 @@ class NeuChoiceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 11.h),
         decoration: BoxDecoration(
-          color: selected ? NeuColors.primary : NeuColors.darkCard,
+          color: selected ? NeuColors.primary : s.card,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
-            color: selected ? NeuColors.primary : NeuColors.darkBorder,
+            color: selected ? NeuColors.primary : s.border,
           ),
         ),
         child: Text(
@@ -37,7 +38,7 @@ class NeuChoiceChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.white60,
+            color: selected ? Colors.white : s.textMuted,
           ),
         ),
       ),

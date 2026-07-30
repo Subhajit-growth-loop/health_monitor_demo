@@ -8,14 +8,15 @@ import '../../../../../core/theme/neu_typography.dart';
 /// Root wrapper for every Neu screen.
 ///
 /// Controls status-bar / nav-bar icon colours and SafeArea from a single
-/// place. Swap [lightStatusIcons] to true on dark-background screens so
-/// the system icons stay visible.
+/// place. Icon colour follows the active theme — black on light, white on dark —
+/// unless [lightStatusIcons] overrides it, which only the screens painting a
+/// dark full-bleed image need to do.
 class NeuBaseScreen extends StatelessWidget {
   const NeuBaseScreen({
     super.key,
     required this.child,
     this.backgroundColor = NeuColors.screenBackground,
-    this.lightStatusIcons = false,
+    this.lightStatusIcons,
     this.useSafeArea = true,
     this.bottomSafeArea = true,
     this.navigationBarColor,
@@ -36,9 +37,10 @@ class NeuBaseScreen extends StatelessWidget {
   final BoxFit backgroundFit;
   final double backgroundOpacity;
 
-  /// true  → dark background → white status-bar icons.
-  /// false → light background → dark status-bar icons.
-  final bool lightStatusIcons;
+  /// true  → white status-bar icons (for a dark background).
+  /// false → black status-bar icons (for a light background).
+  /// null  → follow the active theme. This is the default.
+  final bool? lightStatusIcons;
   final bool useSafeArea;
 
   /// When false, the child paints through the bottom safe-area inset (so a
@@ -55,17 +57,18 @@ class NeuBaseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final navBarColor = navigationBarColor ?? backgroundColor;
+    final lightIcons = lightStatusIcons ?? NeuSurface.of(context).isDark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: lightStatusIcons
+        statusBarIconBrightness: lightIcons
             ? Brightness.light
             : Brightness.dark,
-        statusBarBrightness: lightStatusIcons
+        statusBarBrightness: lightIcons
             ? Brightness.dark
             : Brightness.light,
         systemNavigationBarColor: navBarColor,
-        systemNavigationBarIconBrightness: lightStatusIcons
+        systemNavigationBarIconBrightness: lightIcons
             ? Brightness.light
             : Brightness.dark,
       ),

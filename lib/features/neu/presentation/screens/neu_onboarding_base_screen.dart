@@ -52,14 +52,16 @@ class NeuOnboardingShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return NeuBaseScreen(
-      backgroundColor: NeuColors.darkBackground,
+      backgroundColor: s.background,
       backgroundImage: backgroundImage,
-      lightStatusIcons: true,
+      lightStatusIcons: s.isDark,
       // Let the dark CTA bar reach the physical bottom edge and tint the
       // Android system nav bar to match.
       bottomSafeArea: false,
-      navigationBarColor: NeuColors.darkBackground,
+      // Matches the CTA bar behind it, so the system nav area blends in.
+      navigationBarColor: s.surface,
       child: Column(
         children: [
           if (showBack)
@@ -82,7 +84,7 @@ class NeuOnboardingShell extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 4,
-                backgroundColor: NeuColors.darkBorder,
+                backgroundColor: s.border,
                 color: NeuColors.primary,
               ),
             ),
@@ -105,7 +107,7 @@ class NeuOnboardingShell extends StatelessWidget {
                       style: NeuTypography.serif(
                         fontSize: 22.sp,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: s.onSurface,
                         height: 1.15,
                       ),
                     ),
@@ -118,13 +120,15 @@ class NeuOnboardingShell extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            color: NeuColors.darkBackground,
+            // White in light mode, as in the original design (4079093): it lifts
+            // the CTA bar off the warm off-white page background.
+            color: s.surface,
             padding: EdgeInsets.fromLTRB(
               18.w,
               10.h,
               18.w,
-              // Own bottom padding since bottomSafeArea is off, so the dark
-              // fill extends through the home-indicator inset.
+              // Own bottom padding since bottomSafeArea is off, so the fill
+              // extends through the home-indicator inset.
               16.h + MediaQuery.of(context).padding.bottom,
             ),
             child: NeuPrimaryButton(
@@ -145,6 +149,7 @@ class _CoachRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 18.w),
       child: Row(
@@ -164,14 +169,14 @@ class _CoachRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: s.onSurface,
                   ),
                 ),
                 Text(
                   'Your health coach',
                   style: TextStyle(
                     fontSize: 12.5.sp,
-                    color: NeuColors.darkTextMuted,
+                    color: s.textMuted,
                   ),
                 ),
               ],
@@ -182,7 +187,7 @@ class _CoachRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w700,
-              color: NeuColors.darkTextMuted,
+              color: s.textMuted,
               letterSpacing: 0.5,
             ),
           ),
@@ -198,19 +203,20 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 42.w,
         height: 34.h,
         decoration: BoxDecoration(
-          color: NeuColors.darkCard,
+          color: s.card,
           borderRadius: BorderRadius.circular(11.r),
-          border: Border.all(color: NeuColors.darkBorder),
+          border: Border.all(color: s.border),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.chevron_left_rounded,
-          color: Colors.white,
+          color: s.onSurface,
           size: 22,
         ),
       ),

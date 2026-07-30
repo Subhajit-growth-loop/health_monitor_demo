@@ -19,6 +19,7 @@ class NeuCheckboxTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = NeuSurface.of(context);
     return InkWell(
       onTap: () => onChanged(!selected),
       borderRadius: BorderRadius.circular(8.r),
@@ -33,7 +34,7 @@ class NeuCheckboxTile extends StatelessWidget {
                 color: selected ? NeuColors.primary : Colors.transparent,
                 borderRadius: BorderRadius.circular(6.r),
                 border: Border.all(
-                  color: selected ? NeuColors.primary : NeuColors.darkBorder,
+                  color: selected ? NeuColors.primary : s.border,
                   width: 1.5,
                 ),
               ),
@@ -52,7 +53,7 @@ class NeuCheckboxTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14.sp,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? Colors.white : Colors.white60,
+                  color: selected ? s.onSurface : s.textMuted,
                 ),
               ),
             ),

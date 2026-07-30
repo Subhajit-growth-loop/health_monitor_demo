@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _kAccessTokenKey = 'neu_token';
@@ -82,6 +83,14 @@ class TokenManager {
     int? expiresIn,
   }) async {
     _assertInit();
+    if (kDebugMode) {
+      // A missing refresh token or expiry is the difference between a session
+      // that renews itself and one that dies on first expiry, so make it visible
+      // at the moment the pair is stored.
+      debugPrint('[TokenManager] stored pair — access: ${accessToken.isNotEmpty}, '
+          'refresh: ${refreshToken.isNotEmpty}, '
+          'expires_in: ${expiresIn ?? "absent"}');
+    }
     await Future.wait([
       _prefs.setString(_kAccessTokenKey, accessToken),
       _prefs.setString(_kRefreshTokenKey, refreshToken),
