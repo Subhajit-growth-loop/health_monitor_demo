@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Health Monitor Demo</string>
+	<string>Neu Health</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>health_monitor_demo</string>
+	<string>Neu Health</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -51,8 +51,8 @@
 		<string>processing</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Health Monitor reads your steps, heart rate, sleep, blood oxygen and active energy to show your health metrics and back them up.</string>
+	<string>Neu Health reads your steps, heart rate, sleep, blood oxygen and active energy to show your health metrics and back them up.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Health Monitor does not write data to Health; this permission is required by the system health framework.</string>
+	<string>Neu Health does not write data to Health; this permission is required by the system health framework.</string>
 </dict>
 </plist>

@@ -46,7 +46,7 @@ class HealthExportService {
     final now = DateTime.now();
 
     final payload = <String, Object?>{
-      'app': 'health_monitor_demo',
+      'app': 'Neu Health',
       'schemaVersion': schemaVersion,
       'exportedAt': now.toUtc().toIso8601String(),
       'platform': _platformName(),

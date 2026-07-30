@@ -38,7 +38,7 @@
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
 
     <application
-        android:label="health_monitor_demo"
+        android:label="Neu Health"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

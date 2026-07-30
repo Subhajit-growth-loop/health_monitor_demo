@@ -84,10 +84,14 @@ class OnboardingChatController extends Notifier<OnboardingChatState> {
   @override
   OnboardingChatState build() => const OnboardingChatState();
 
-  /// Opens the conversation. Safe to call repeatedly — it no-ops once a session
-  /// exists, so a widget rebuild can't start a second one.
+  /// Opens a **fresh** conversation, discarding anything from a previous visit
+  /// to this step — nothing about the chat is kept between visits.
+  ///
+  /// The in-flight guard remains so a rebuild mid-open can't fire a second
+  /// `/start`; call [restart] to force a new one.
   Future<void> start() async {
-    if (state.sessionId != null || state.starting) return;
+    if (state.starting) return;
+    state = const OnboardingChatState();
 
     state = state.copyWith(starting: true, error: null);
     try {
@@ -288,19 +292,9 @@ class OnboardingChatController extends Notifier<OnboardingChatState> {
       sending: sending ?? state.sending,
     );
 
-    // Park the narrative in the draft's `note` field so the step's answer is
-    // persisted with the rest of the onboarding on the next "Save & next",
-    // rather than living only in this controller.
-    final narrative = res.summary?.narrative;
-    if (res.done && narrative != null && narrative.isNotEmpty) {
-      final onboarding = ref.read(onboardingControllerProvider);
-      final draft = onboarding.value?.draft;
-      if (draft != null) {
-        ref
-            .read(onboardingControllerProvider.notifier)
-            .editDraft(draft.copyWith(note: narrative));
-      }
-    }
+    // Nothing is written to the local draft. The conversation lives on the
+    // server for the life of its session; the client keeps it only in this
+    // controller, which is reset every time the step is opened.
   }
 }
 

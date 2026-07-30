@@ -70,7 +70,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   size: 52.r, color: scheme.primary),
             ),
             SizedBox(height: 24.h),
-            Text('Health Monitor',
+            Text('Neu Health',
                 style: TextStyle(
                     fontSize: 24.sp, fontWeight: FontWeight.w700)),
             SizedBox(height: 8.h),

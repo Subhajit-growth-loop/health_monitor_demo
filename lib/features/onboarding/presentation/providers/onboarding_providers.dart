@@ -64,7 +64,10 @@ Map<String, dynamic> answersForStep(OnboardingStep step, OnboardingDraft d) =>
       OnboardingStep.cycle => {'menstrualCycle': d.menstrualCycle},
       OnboardingStep.symptoms => {'symptoms': d.symptoms},
       OnboardingStep.feeling => {'feeling': d.feeling.toJson()},
-      OnboardingStep.note => {'note': d.note},
+      // The chat is never persisted locally — the transcript and summary live
+      // on the server for the life of the session, so this step contributes
+      // nothing to the draft.
+      OnboardingStep.note => const <String, dynamic>{},
       OnboardingStep.connect => {
         'connectChoice': d.connectChoice,
         'connectedSources': d.connectedSources,

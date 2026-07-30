@@ -6,6 +6,7 @@ import '../../../../../core/session/app_error_handler.dart';
 import '../../../../../core/theme/neu_colors.dart';
 import '../../../../../core/theme/neu_typography.dart';
 import '../../../onboarding/presentation/providers/onboarding_providers.dart';
+import '../../../onboarding/domain/entities/referral_code_formatter.dart';
 import '../widgets/neu_base_screen.dart';
 import '../widgets/neu_logo.dart';
 import '../widgets/neu_primary_button.dart';
@@ -166,6 +167,11 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _verifyCode(),
                     errorText: _codeError,
+                    // Upper-cases and inserts the hyphen after `NEU`, on typing
+                    // and on paste. The keyboard hint matches so the shift key
+                    // isn't fighting the formatter.
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: const [ReferralCodeFormatter()],
                     maxLength: 8,
                     suffixIcon: _codeState == _CodeState.verified
                         ? Container(

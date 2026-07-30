@@ -310,8 +310,13 @@ class _NeuOnboardingFlowScreenState
               p.currentSupplements,
               PatientProfileOptions.supplements,
             ).isNotEmpty;
-      case OnboardingStep.feeling: // sliders always carry a value
-      case OnboardingStep.letter: // read-only
+      case OnboardingStep.feeling:
+        // No validation by design. The four sliders always hold a value (they
+        // default to 0.5), so there is nothing the user could fail to answer —
+        // leaving them untouched is itself a valid answer.
+        return true;
+      case OnboardingStep.letter:
+        // Read-only — nothing to answer.
         return true;
       case OnboardingStep.motivation:
         return d.motivations.isNotEmpty && d.supportTypes.isNotEmpty;
@@ -324,8 +329,10 @@ class _NeuOnboardingFlowScreenState
       case OnboardingStep.symptoms:
         return d.symptoms.isNotEmpty;
       case OnboardingStep.note:
-        // Unlocked only when the AI reports the conversation finished.
-        return ref.watch(onboardingChatControllerProvider).done;
+        // Always enabled: the chat is optional context, so the patient can move
+        // on mid-conversation. Gating on `done` also meant a server-side chat
+        // failure blocked onboarding entirely, with no way past this step.
+        return true;
       case OnboardingStep.connect:
         return d.connectChoice != null;
       case OnboardingStep.firstAction:

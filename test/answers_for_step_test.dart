@@ -56,10 +56,8 @@ void main() {
       });
     });
 
-    test('note sends the chat narrative', () {
-      expect(answersForStep(OnboardingStep.note, full), {
-        'note': 'the AI narrative',
-      });
+    test('note sends nothing — the chat is never stored locally', () {
+      expect(answersForStep(OnboardingStep.note, full), isEmpty);
     });
 
     test('connect', () {
@@ -103,14 +101,15 @@ void main() {
       }
     });
 
-    test('the union covers every draft field', () {
+    test('every draft field except note is reachable', () {
       final sent = {
         for (final step in OnboardingStep.values)
           ...answersForStep(step, full).keys,
       };
-      // toJson is the full draft shape — nothing may be unreachable, or it would
-      // never persist.
-      expect(sent, containsAll(full.toJson().keys));
+      // `note` is deliberately unreachable: the chat is not persisted locally.
+      final expected = full.toJson().keys.where((k) => k != 'note');
+      expect(sent, containsAll(expected));
+      expect(sent, isNot(contains('note')));
     });
   });
 

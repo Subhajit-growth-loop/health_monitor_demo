@@ -24,6 +24,8 @@ class NeuTextField extends StatelessWidget {
     this.errorText,
     this.dark,
     this.maxLength,
+    this.inputFormatters,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final TextEditingController controller;
@@ -40,6 +42,12 @@ class NeuTextField extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final String? errorText;
   final int? maxLength;
+
+  /// Applied on every edit, including paste.
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// Keyboard casing hint (the formatter still enforces the real casing).
+  final TextCapitalization textCapitalization;
 
   /// Forces dark-theme colours. Null (the default) follows the active theme.
   final bool? dark;
@@ -83,6 +91,8 @@ class NeuTextField extends StatelessWidget {
           onSubmitted: onSubmitted,
           focusNode: focusNode,
           autofillHints: autofillHints,
+          textCapitalization: textCapitalization,
+          inputFormatters: inputFormatters,
           maxLength: maxLength,
           maxLengthEnforcement: maxLength != null ? MaxLengthEnforcement.enforced : null,
           style: TextStyle(
