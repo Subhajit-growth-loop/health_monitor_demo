@@ -25,10 +25,25 @@ abstract final class AppUrls {
   /// Response: { id, token, email, role, gender }
   static const String login = '/auth/login';
 
+  /// POST /auth/refresh — exchanges a refresh token for a **new pair**. The old
+  /// refresh token is rotated out, so the response must be persisted whole.
+  /// Body:     { refresh_token }
+  /// Response: { access_token, refresh_token, token_type, expires_in }
+  static const String refresh = '/auth/refresh';
+
   /// POST /auth/logout — ends the session belonging to a refresh token.
   /// Body:     { refresh_token }
   /// Response: { message }          422 on a missing/invalid token.
   static const String logout = '/auth/logout';
+
+  /// POST /auth/logout-all — ends every session for the current user.
+  static const String logoutAll = '/auth/logout-all';
+
+  /// GET /auth/me — the user behind the access token.
+  static const String me = '/auth/me';
+
+  /// GET /auth/sessions — live refresh tokens for the current user.
+  static const String sessions = '/auth/sessions';
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
 

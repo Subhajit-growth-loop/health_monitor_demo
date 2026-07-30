@@ -118,26 +118,33 @@ void main() {
   });
 
   group('401 handling', () {
-    test('authenticated 401 expires the session', () {
-      var expired = false;
-      handler.onSessionExpired = () => expired = true;
+    test('authenticated 401 reads as session expiry', () {
       final msg = handler.handle(
         _err(401, {'message': 'Token expired'},
             path: '/patient/me/details', authed: true),
       );
-      expect(expired, isTrue);
       expect(msg, 'Your session has expired. Please log in again.');
     });
 
-    test('unauthenticated 401 shows the backend message, keeps session', () {
+    test('does not itself end the session — AuthInterceptor owns that', () {
+      // A 401 reaching the handler has already failed AuthInterceptor's refresh.
+      // If this class also fired the callback, a recoverable 401 would log the
+      // user out before a refresh could be attempted.
       var expired = false;
       handler.onSessionExpired = () => expired = true;
+      handler.handle(
+        _err(401, {'message': 'Token expired'},
+            path: '/patient/me/details', authed: true),
+      );
+      expect(expired, isFalse);
+    });
+
+    test('unauthenticated 401 shows the backend message', () {
       final msg = handler.handle(
         _err(401, {
           'error': {'message': 'Invalid email or password.'}
         }, path: '/auth/login'),
       );
-      expect(expired, isFalse);
       expect(msg, 'Invalid email or password.');
     });
   });

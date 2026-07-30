@@ -18,8 +18,14 @@ class AppErrorHandler {
   /// Optional UI-layer callback. Set once in the root widget build/initState.
   ErrorCallback? onError;
 
-  /// Called when an *authenticated* request returns HTTP 401. Use this to clear
-  /// the session and redirect to the login screen via a global NavigatorKey.
+  /// Called when the session is genuinely over — the refresh token was missing
+  /// or rejected. Use this to clear the session and redirect to the login screen
+  /// via a global NavigatorKey.
+  ///
+  /// Fired by `AuthInterceptor`, **not** here: a 401 on its own is routine and
+  /// usually recoverable by refreshing, so this class only turns it into a
+  /// message. Firing on every 401 logged out users who had a valid refresh
+  /// token.
   VoidCallback? onSessionExpired;
 
   /// Reason phrases a framework emits when no handler supplied a message —
@@ -83,14 +89,14 @@ class AppErrorHandler {
     final status = e.response?.statusCode ?? 0;
     final backend = _backendMessage(e.response?.data, status);
 
-    // A 401 on a request that carried a token means the session died — clear it
-    // and bounce to login. Without a token it's just a failed sign-in, so the
-    // backend's own wording ("Invalid email or password") is what the user needs.
+    // A 401 that reaches here has already survived AuthInterceptor's refresh
+    // attempt, so on an authenticated request the session really is over — but
+    // the redirect is the interceptor's job, not ours. Without a token it's just
+    // a failed sign-in, so the backend's own wording is what the user needs.
     if (status == 401) {
       final wasAuthenticated =
           e.requestOptions.headers.containsKey('Authorization');
       if (wasAuthenticated) {
-        onSessionExpired?.call();
         return 'Your session has expired. Please log in again.';
       }
       return backend ?? 'Incorrect email or password.';

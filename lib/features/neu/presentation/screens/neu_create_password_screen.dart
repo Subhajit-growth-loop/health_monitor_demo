@@ -119,6 +119,7 @@ class _NeuCreatePasswordScreenState
       await TokenManager.instance.setTokens(
         accessToken: auth.token.isNotEmpty ? auth.token : registered.userId,
         refreshToken: auth.refreshToken,
+        expiresIn: auth.expiresIn,
       );
       await CurrentUser.instance.set(
         id: auth.userId.isNotEmpty ? auth.userId : registered.userId,

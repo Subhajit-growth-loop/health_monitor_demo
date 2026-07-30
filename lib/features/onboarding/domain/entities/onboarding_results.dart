@@ -36,11 +36,14 @@ class ReferralResult {
   }
 }
 
+/// A token pair from `/auth/login` or `/auth/refresh` — both return
+/// `{ access_token, refresh_token, token_type, expires_in }`.
 class AuthResult {
   const AuthResult({
     required this.userId,
     this.token = '',
     this.refreshToken = '',
+    this.expiresIn,
     this.email,
     this.gender,
     this.name,
@@ -49,6 +52,9 @@ class AuthResult {
   final String userId;
   final String token;         // access_token
   final String refreshToken;  // refresh_token
+
+  /// Access-token lifetime in seconds, as sent by the server.
+  final int? expiresIn;
   final String? email;
   final String? gender;
   final String? name;
@@ -67,6 +73,7 @@ class AuthResult {
           '',
       token: accessToken,
       refreshToken: refreshToken,
+      expiresIn: (json['expires_in'] as num?)?.toInt(),
       email: jwt['email'] as String? ?? json['email'] as String?,
       gender: json['gender'] as String?,
       name: json['name'] as String?,

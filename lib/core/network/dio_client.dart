@@ -1,19 +1,24 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../session/token_manager.dart';
+import '../session/app_error_handler.dart';
 import '../settings/app_settings.dart';
 import 'app_urls.dart';
+import 'auth_interceptor.dart';
 import 'mock_api_interceptor.dart';
 
 /// A configured [Dio] shared across the auth + onboarding data sources.
 ///
 /// - Sets the base URL and sane timeouts.
-/// - Attaches `Authorization: Bearer <token>` from SharedPreferences on every
-///   request once the user has signed in.
-/// - Attaches [MockApiInterceptor], which answers the three onboarding-draft
-///   routes locally and forwards everything else — including the Verify-info
-///   step's `PATCH /patient/me/details` — to the real API.
+/// - [AuthInterceptor] attaches the bearer token, renews it before expiry, and
+///   retries a 401 once after refreshing. Only a failed refresh ends the
+///   session.
+/// - [MockApiInterceptor] answers the three onboarding-draft routes locally and
+///   forwards everything else — including the Verify-info step's
+///   `PATCH /patient/me/details` — to the real API.
+///
+/// Order matters: the auth interceptor is added first so it sees requests before
+/// the mock short-circuits them, and errors after the mock has declined them.
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -25,14 +30,11 @@ final dioProvider = Provider<Dio>((ref) {
   );
 
   dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final token = TokenManager.instance.token;
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
+    AuthInterceptor(
+      dio: dio,
+      // Same destination as before — clear the session and go to login — but
+      // now reached only after a refresh attempt has genuinely failed.
+      onSessionExpired: () => AppErrorHandler.instance.onSessionExpired?.call(),
     ),
   );
 

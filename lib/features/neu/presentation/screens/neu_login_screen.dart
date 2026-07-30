@@ -75,6 +75,7 @@ class _NeuLoginScreenState extends ConsumerState<NeuLoginScreen> {
       await TokenManager.instance.setTokens(
         accessToken: auth.token,
         refreshToken: auth.refreshToken,
+        expiresIn: auth.expiresIn,
       );
       await CurrentUser.instance.set(
         id: auth.userId,
