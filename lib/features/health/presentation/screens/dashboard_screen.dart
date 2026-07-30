@@ -432,7 +432,7 @@ class _TodayTab extends ConsumerWidget {
           children: [
             // ── Header row ───────────────────────────────────────────────
             Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 0),
+              padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
               child: Row(
                 children: [
                   // Avatar
@@ -445,9 +445,9 @@ class _TodayTab extends ConsumerWidget {
                     ),
                     child: Center(
                       child: Text(
-                        'N',
+                        firstName.isNotEmpty ? firstName[0].toUpperCase() : '?',
                         style: NeuTypography.sans(
-                          fontSize: 14.sp,
+                          fontSize: 20.sp,
                           color: NeuColors.primary,
                           fontWeight: FontWeight.w700,
                         ),
