@@ -23,8 +23,6 @@ class NeuWelcomeScreen extends ConsumerStatefulWidget {
 
 class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
   final _codeController = TextEditingController();
-  _CodeState _codeState = _CodeState.idle;
-  String _verifiedEmail = '';
   bool _isLoading = false;
   String? _codeError;
 
@@ -34,11 +32,8 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
     super.dispose();
   }
 
-  void _onCodeChanged(String value) {
-    setState(() {
-      _codeState = _CodeState.idle;
-      _codeError = null;
-    });
+  void _onCodeChanged(String _) {
+    if (_codeError != null) setState(() => _codeError = null);
   }
 
   Future<void> _verifyCode() async {
@@ -57,16 +52,18 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
           .read(onboardingRepositoryProvider)
           .verifyReferral(code);
       if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        if (result.valid) {
-          _codeState = _CodeState.verified;
-          _verifiedEmail = result.email ?? '';
-        } else {
-          _codeState = _CodeState.idle;
-        }
-      });
-      if (!result.valid) {
+      setState(() => _isLoading = false);
+      if (result.valid) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => NeuCreatePasswordScreen(
+              referralCode: code,
+              initialEmail: result.email ?? '',
+              showVerifiedBanner: true,
+            ),
+          ),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('That referral code was not recognised.'),
@@ -82,21 +79,6 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
                 'Code not recognised';
       });
     }
-  }
-
-  void _startOnboarding() {
-    if (_codeState != _CodeState.verified) {
-      _verifyCode();
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NeuCreatePasswordScreen(
-          referralCode: _codeController.text.trim(),
-          initialEmail: _verifiedEmail,
-        ),
-      ),
-    );
   }
 
   @override
@@ -173,48 +155,7 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
                     textCapitalization: TextCapitalization.characters,
                     inputFormatters: const [ReferralCodeFormatter()],
                     maxLength: 8,
-                    suffixIcon: _codeState == _CodeState.verified
-                        ? Container(
-                            margin: const EdgeInsets.all(10),
-                            decoration: const BoxDecoration(
-                              color: NeuColors.success,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.check_rounded,
-                              color: s.onSurface,
-                              size: 18,
-                            ),
-                          )
-                        : null,
                   ),
-                  if (_codeState == _CodeState.verified) ...[
-                    SizedBox(height: 10.h),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: NeuColors.success,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Code verified — continue as $_verifiedEmail',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              color: NeuColors.success,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            softWrap: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                   SizedBox(height: 24.h),
                 ],
               ),
@@ -226,10 +167,8 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
             child: Column(
               children: [
                 NeuPrimaryButton(
-                  label: _codeState == _CodeState.verified
-                      ? 'Continue'
-                      : 'Verify Code',
-                  onPressed: _startOnboarding,
+                  label: 'Verify Code',
+                  onPressed: _verifyCode,
                   isLoading: _isLoading,
                 ),
                 SizedBox(height: 20.h),
@@ -265,4 +204,3 @@ class _NeuWelcomeScreenState extends ConsumerState<NeuWelcomeScreen> {
   }
 }
 
-enum _CodeState { idle, verified }

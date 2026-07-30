@@ -144,6 +144,12 @@ Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
 
   await TokenManager.instance.clearToken();
   await CurrentUser.instance.clear();
+  final prefs = ref.read(sharedPreferencesProvider);
+  await Future.wait([
+    clearSyncPrefsOnLogout(prefs),
+    prefs.remove('neu_health_permissions_requested'),
+    ref.read(localDataSourceProvider).clearAll(),
+  ]);
 
   if (!context.mounted) return;
   if (apiError != null) {
@@ -1068,7 +1074,7 @@ class _VitalMiniCard extends StatelessWidget {
         MaterialPageRoute(builder: (_) => MetricDetailScreen(type: type)),
       ),
       child: Container(
-        padding: EdgeInsets.all(14.r),
+        padding: EdgeInsets.fromLTRB(14.r, 14.r, 14.r, 8.r),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(16.r),
@@ -1131,6 +1137,22 @@ class _VitalMiniCard extends StatelessWidget {
                   ),
                 ],
               )
+            else if (_hasData && type.unit.isNotEmpty)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    Fmt.metricValue(type, summaryValue),
+                    style: NeuTypography.serif(fontSize: 20.sp, color: fg),
+                  ),
+                  SizedBox(width: 3.w),
+                  Text(
+                    type.unit,
+                    style: NeuTypography.sans(fontSize: 11.sp, color: subtle),
+                  ),
+                ],
+              )
             else
               Text(
                 _hasData ? Fmt.metricValue(type, summaryValue) : '—',
@@ -1139,19 +1161,10 @@ class _VitalMiniCard extends StatelessWidget {
                   color: _hasData ? fg : subtle,
                 ),
               ),
-            if (type != HealthMetricType.steps && type.unit.isNotEmpty)
+            if (!_hasData && type != HealthMetricType.steps && type.unit.isNotEmpty)
               Text(
-                _hasData ? type.unit : 'No data yet',
+                'No data yet',
                 style: TextStyle(fontSize: 11.sp, color: subtle),
-              ),
-            if (isSample && _hasData)
-              Text(
-                'Sample data',
-                style: TextStyle(
-                  fontSize: 10.sp,
-                  color: subtle,
-                  fontStyle: FontStyle.italic,
-                ),
               ),
           ],
         ),

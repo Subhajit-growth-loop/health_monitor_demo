@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/background/health_background_service.dart';
+import 'features/health/data/datasources/local/health_local_datasource.dart';
 import 'core/database/app_database.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/session/app_error_handler.dart';
@@ -36,6 +37,11 @@ Future<void> main() async {
   AppErrorHandler.instance.onSessionExpired = () async {
     await TokenManager.instance.clearToken();
     await CurrentUser.instance.clear();
+    await Future.wait([
+      clearSyncPrefsOnLogout(prefs),
+      prefs.remove('neu_health_permissions_requested'),
+      db.delete(HealthLocalDataSource.table),
+    ]);
     HealthMonitorApp.navigatorKey.currentState?.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const NeuLoginScreen()),
       (_) => false,

@@ -281,6 +281,12 @@ class HealthLocalDataSource {
     }
   }
 
+  /// Deletes every record — called on logout so the next user starts clean.
+  Future<void> clearAll() async {
+    await _db.delete(table);
+    _notify();
+  }
+
   Future<void> dispose() {
     _notifyTimer?.cancel();
     return _changes.close();

@@ -41,6 +41,13 @@ Future<void> markSyncSuccess() async {
   );
 }
 
+/// Removes all user-specific sync prefs so a new user starts clean after logout.
+Future<void> clearSyncPrefsOnLogout(SharedPreferences prefs) => Future.wait([
+      prefs.remove(SyncPrefsKeys.autoSync),
+      prefs.remove(SyncPrefsKeys.intervalMinutes),
+      prefs.remove(SyncPrefsKeys.lastSuccessfulSyncMs),
+    ]);
+
 /// The timestamp of the last successful sync, or null if it has never synced.
 Future<DateTime?> readLastSuccessfulSync() async {
   final prefs = await SharedPreferences.getInstance();

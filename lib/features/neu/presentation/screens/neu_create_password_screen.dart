@@ -25,10 +25,12 @@ class NeuCreatePasswordScreen extends ConsumerStatefulWidget {
     super.key,
     this.initialEmail,
     this.referralCode,
+    this.showVerifiedBanner = false,
   });
 
   final String? initialEmail;
   final String? referralCode;
+  final bool showVerifiedBanner;
 
   @override
   ConsumerState<NeuCreatePasswordScreen> createState() =>
@@ -53,6 +55,14 @@ class _NeuCreatePasswordScreenState
   void initState() {
     super.initState();
     _emailController = TextEditingController(text: widget.initialEmail ?? '');
+    if (widget.showVerifiedBanner) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Referral code verified successfully!')),
+        );
+      });
+    }
   }
 
   @override
