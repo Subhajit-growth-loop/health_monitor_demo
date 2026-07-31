@@ -126,7 +126,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     style: NeuTypography.serif(
                       fontSize: 26.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.primary,
+                      color: s.onSurface,
                       letterSpacing: -0.4,
                     ),
                   ),

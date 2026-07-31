@@ -158,7 +158,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               style: NeuTypography.serif(
                 fontSize: 26.sp,
                 fontWeight: FontWeight.w700,
-                color: NeuColors.primary,
+                color: s.onSurface,
                 letterSpacing: -0.4,
               ),
             ),
@@ -213,7 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 'Forgot password?',
                 style: TextStyle(
                   fontSize: 13.sp,
-                  color: s.textMuted,
+                  color: NeuColors.primary,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
                 ),

@@ -6,14 +6,20 @@ abstract final class NeuColors {
   /// #F9F4F0 — app background (warm off-white).
   static const Color screenBackground = Color(0xFFF9F4F0);
 
-  /// #F7EDD9 — pale accent (pill badges, chat hint bubble).
+  /// #F7EDD9 — pale yellow accent (feature carousel badge).
   static const Color accentYellow = Color(0xFFF7EDD9);
+
+  /// #EEE5DB — warm beige fill: Maya bubble, segmented control track, tinted panels.
+  static const Color warmFill = Color(0xFFEEE5DB);
+
+  /// #F18B5C — lighter orange (secondary accent, unselected warm tones).
+  static const Color lightOrange = Color(0xFFF18B5C);
 
   /// #D57D5A — primary orange (CTAs, selection).
   static const Color primary = Color(0xFFD57D5A);
 
-  /// #342C28 — primary text (near-black warm brown).
-  static const Color textDark = Color(0xFF342C28);
+  /// #3C332F — primary text (near-black warm brown).
+  static const Color textDark = Color(0xFF3C332F);
 
   /// #473C36 — olive/mid-brown (section eyebrows, badge text).
   static const Color olive = Color(0xFF473C36);
@@ -36,8 +42,8 @@ abstract final class NeuColors {
 
   static const Color success = Color(0xFF2E7D32);
 
-  /// Input fill + border, tuned to the cream background.
-  static const Color inputFill = Color(0xFFF9F4F0);
+  /// Input fill: white so fields stand out against the cream background.
+  static const Color inputFill = Color(0xFFFFFFFF);
   static const Color inputBorder = Color(0xFFE6DED5);
 
   // ── Dark-screen tokens (auth + onboarding + dark dashboard) ─────────────────
@@ -113,7 +119,7 @@ class NeuSurface {
     border: NeuColors.inputBorder,
     textMuted: NeuColors.textSecondary,
     onSurface: NeuColors.textDark,
-    accent: NeuColors.accentYellow,
+    accent: NeuColors.warmFill,
     emphasis: NeuColors.olive,
     isDark: false,
   );

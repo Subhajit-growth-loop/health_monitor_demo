@@ -13,21 +13,13 @@ class NeuMayaBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = NeuSurface.of(context);
-    // Dark surface box with an orange left-border strip.
+    final fillColor = s.isDark ? s.card : NeuColors.warmFill;
     return Container(
       decoration: BoxDecoration(
-        color: s.card,
-        borderRadius: BorderRadius.all(
-          Radius.circular(16.r),
-        ),
-        border: Border(
-          left: BorderSide(
-            color: NeuColors.primary, // or whatever color you want
-            width: 4.w,
-          ),
-        ),
+        color: fillColor,
+        borderRadius: BorderRadius.circular(16.r),
       ),
-      padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 14.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
       child: Text(
         text,
         style: TextStyle(

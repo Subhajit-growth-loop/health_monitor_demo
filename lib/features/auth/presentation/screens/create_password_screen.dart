@@ -186,7 +186,7 @@ class _CreatePasswordScreenState
                     style: NeuTypography.serif(
                       fontSize: 27.sp,
                       fontWeight: FontWeight.w700,
-                      color: NeuColors.primary,
+                      color: s.onSurface,
                       letterSpacing: -0.5,
                     ),
                   ),
