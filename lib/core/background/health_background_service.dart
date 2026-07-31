@@ -4,13 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
-import '../../features/health/data/datasources/local/health_local_datasource.dart';
-import '../../features/health/data/datasources/platform/health_platform_datasource.dart';
-import '../../features/health/data/datasources/platform/real_health_platform_datasource.dart';
-import '../../features/health/data/datasources/platform/simulated_health_platform_datasource.dart';
-import '../../features/health/data/datasources/remote/http_health_remote_datasource.dart';
-import '../../features/health/data/repositories/health_repository_impl.dart';
-import '../../features/health/presentation/providers/health_providers.dart'
+import '../../features/dashboard/data/datasources/local/health_local_datasource.dart';
+import '../../features/dashboard/data/datasources/platform/health_platform_datasource.dart';
+import '../../features/dashboard/data/datasources/platform/real_health_platform_datasource.dart';
+import '../../features/dashboard/data/datasources/platform/simulated_health_platform_datasource.dart';
+import '../../features/dashboard/data/datasources/remote/http_health_remote_datasource.dart';
+import '../../features/dashboard/data/repositories/health_repository_impl.dart';
+import '../../features/dashboard/presentation/view_model/health_view_model.dart'
     show kForceSimulatedHealth;
 import '../connectivity/connectivity_service.dart';
 import '../database/app_database.dart';

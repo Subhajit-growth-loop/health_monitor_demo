@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../session/token_manager.dart';
-import 'app_urls.dart';
+import '../../app/app_url.dart';
 
 /// Keeps the session alive by exchanging the refresh token for a new pair
 /// whenever the access token is expired or rejected.

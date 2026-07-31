@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import '../../features/health/domain/entities/health_metric_type.dart';
+import '../../features/dashboard/domain/entities/health_metric_type.dart';
 
 /// Static notification service — safe to call from both the main isolate
 /// (foreground) and WorkManager's background isolate.

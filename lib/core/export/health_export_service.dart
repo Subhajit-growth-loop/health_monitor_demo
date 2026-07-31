@@ -5,7 +5,7 @@ import 'package:file_saver/file_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../features/health/domain/repositories/health_repository.dart';
+import '../../features/dashboard/domain/repositories/health_repository.dart';
 
 /// Result of building an export — the JSON text plus how many samples it holds.
 class HealthExport {

@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../session/current_user.dart';
-import 'app_urls.dart';
+import '../../app/app_url.dart';
 
 /// Mock backend for the onboarding **answer draft** only.
 ///

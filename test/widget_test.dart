@@ -5,10 +5,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:health_monitor_demo/features/health/data/datasources/local/health_local_datasource.dart';
-import 'package:health_monitor_demo/features/health/data/datasources/platform/simulated_health_platform_datasource.dart';
-import 'package:health_monitor_demo/features/health/data/datasources/remote/health_remote_datasource.dart';
-import 'package:health_monitor_demo/features/health/domain/entities/health_metric_type.dart';
+import 'package:health_monitor_demo/features/dashboard/data/datasources/local/health_local_datasource.dart';
+import 'package:health_monitor_demo/features/dashboard/data/datasources/platform/simulated_health_platform_datasource.dart';
+import 'package:health_monitor_demo/features/dashboard/data/datasources/remote/health_remote_datasource.dart';
+import 'package:health_monitor_demo/features/dashboard/domain/entities/health_metric_type.dart';
 
 void main() {
   setUpAll(() {

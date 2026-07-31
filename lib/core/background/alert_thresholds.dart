@@ -1,4 +1,4 @@
-import '../../features/health/domain/entities/health_metric_type.dart';
+import '../../features/dashboard/domain/entities/health_metric_type.dart';
 
 /// A violated threshold produces this record, used by both the foreground
 /// banner and the background notification.

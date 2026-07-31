@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health_monitor_demo/features/onboarding/domain/entities/onboarding_draft.dart';
-import 'package:health_monitor_demo/features/onboarding/presentation/providers/onboarding_providers.dart';
+import 'package:health_monitor_demo/features/onboarding/presentation/view_model/onboarding_view_model.dart';
 
 void main() {
   // A draft with every field answered, so a step leaking another step's data is
