@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
-import 'features/neu/presentation/screens/neu_splash_screen.dart';
+import 'features/splash/presentation/screens/splash_screen.dart';
 
 class HealthMonitorApp extends ConsumerWidget {
   const HealthMonitorApp({super.key});
@@ -37,7 +37,7 @@ class HealthMonitorApp extends ConsumerWidget {
         ),
         home: child,
       ),
-      child: const NeuSplashScreen(),
+      child: const SplashScreen(),
     );
   }
 }

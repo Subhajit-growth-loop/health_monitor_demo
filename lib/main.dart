@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/background/health_background_service.dart';
-import 'features/health/data/datasources/local/health_local_datasource.dart';
+import 'features/dashboard/data/datasources/local/health_local_datasource.dart';
 import 'core/database/app_database.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/session/app_error_handler.dart';
@@ -13,9 +13,9 @@ import 'core/session/current_user.dart';
 import 'core/session/token_manager.dart';
 import 'core/settings/app_settings.dart';
 import 'core/theme/theme_provider.dart';
-import 'features/health/presentation/providers/health_providers.dart';
-import 'features/health/presentation/screens/sync_settings_screen.dart';
-import 'features/neu/presentation/screens/neu_login_screen.dart';
+import 'features/dashboard/presentation/view_model/health_view_model.dart';
+import 'features/dashboard/presentation/screens/sync_settings_screen.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +43,7 @@ Future<void> main() async {
       db.delete(HealthLocalDataSource.table),
     ]);
     HealthMonitorApp.navigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const NeuLoginScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
     );
   };

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_monitor_demo/core/network/app_urls.dart';
+import 'package:health_monitor_demo/app/app_url.dart';
 import 'package:health_monitor_demo/features/onboarding/data/datasources/remote/onboarding_api.dart';
 import 'package:health_monitor_demo/features/onboarding/data/repositories/onboarding_repository_impl.dart';
 import 'package:health_monitor_demo/features/onboarding/domain/entities/user_profile.dart';

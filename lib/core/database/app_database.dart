@@ -4,7 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import '../../features/health/data/datasources/local/health_local_datasource.dart';
+import '../../features/dashboard/data/datasources/local/health_local_datasource.dart';
 
 /// Opens the on-device database. Uses the native SQLite on iOS/Android and the
 /// FFI backend on desktop so the same code runs everywhere.

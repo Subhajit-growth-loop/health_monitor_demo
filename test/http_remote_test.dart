@@ -7,10 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:health_monitor_demo/features/health/data/datasources/remote/http_health_remote_datasource.dart';
-import 'package:health_monitor_demo/features/health/data/models/health_record_model.dart';
-import 'package:health_monitor_demo/features/health/domain/entities/health_metric_type.dart';
-import 'package:health_monitor_demo/features/health/domain/entities/sync_status.dart';
+import 'package:health_monitor_demo/features/dashboard/data/datasources/remote/http_health_remote_datasource.dart';
+import 'package:health_monitor_demo/features/dashboard/data/models/health_record_model.dart';
+import 'package:health_monitor_demo/features/dashboard/domain/entities/health_metric_type.dart';
+import 'package:health_monitor_demo/features/dashboard/domain/entities/sync_status.dart';
 
 HealthRecordModel _sample(String id) => HealthRecordModel(
       id: id,

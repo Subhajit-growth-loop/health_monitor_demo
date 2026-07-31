@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_monitor_demo/core/network/app_urls.dart';
+import 'package:health_monitor_demo/app/app_url.dart';
 import 'package:health_monitor_demo/core/network/auth_interceptor.dart';
 import 'package:health_monitor_demo/core/session/token_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-import '../../features/health/domain/entities/health_metric_type.dart';
+import '../../features/dashboard/domain/entities/health_metric_type.dart';
 
 /// Presentation-layer value formatting.
 class Fmt {

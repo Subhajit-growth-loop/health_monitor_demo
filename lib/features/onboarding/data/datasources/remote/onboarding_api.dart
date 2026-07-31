@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../../../core/network/app_urls.dart';
+import '../../../../../app/app_url.dart';
 
 class OnboardingApi {
   OnboardingApi(this._dio);

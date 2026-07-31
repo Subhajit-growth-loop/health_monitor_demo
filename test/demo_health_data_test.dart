@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:health_monitor_demo/features/health/data/demo/demo_health_data.dart';
-import 'package:health_monitor_demo/features/health/domain/entities/daily_point.dart';
-import 'package:health_monitor_demo/features/health/domain/entities/health_metric_type.dart';
+import 'package:health_monitor_demo/features/dashboard/data/demo/demo_health_data.dart';
+import 'package:health_monitor_demo/features/dashboard/domain/entities/daily_point.dart';
+import 'package:health_monitor_demo/features/dashboard/domain/entities/health_metric_type.dart';
 
 void main() {
   // Fixed "now" so day-boundary arithmetic is not time-of-run dependent.
