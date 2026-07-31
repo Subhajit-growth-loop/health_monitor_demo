@@ -34,7 +34,7 @@ class NeuRadioTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 15.sp,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? s.onSurface : s.textMuted,
+              color: selected ? NeuColors.primary : s.textMuted,
             ),
           ),
         ),
