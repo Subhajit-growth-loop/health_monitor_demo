@@ -342,6 +342,10 @@ class _MetricDetailScreenState extends ConsumerState<MetricDetailScreen> {
                 ),
                 padding: EdgeInsets.fromLTRB(8.w, 16.h, 8.w, 8.h),
                 child: series.when(
+                  // Keep the previous chart visible while a re-query runs
+                  // (period switch with cached data, background sync).
+                  skipLoadingOnRefresh: true,
+                  skipLoadingOnReload: true,
                   loading: () => SizedBox(
                     height: 200.h,
                     child: Center(

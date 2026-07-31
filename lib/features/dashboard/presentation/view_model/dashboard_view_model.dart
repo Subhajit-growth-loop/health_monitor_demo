@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,32 @@ import 'health_view_model.dart';
 /// dashboard. The fallback is applied here — at read time — and never written
 /// back, so sync and export continue to see real records only.
 
+/// Collapses rapid DB-change events (multiple writes during a platform sync
+/// batch) into a single notification. Without this, every individual record
+/// written triggers a re-query, causing the UI to rebuild dozens of times per
+/// sync cycle and appear to "flicker" as values update repeatedly.
+final _healthChangesDebouncedProvider = StreamProvider<void>((ref) {
+  final controller = StreamController<void>.broadcast();
+  Timer? timer;
+
+  ref.listen<AsyncValue<void>>(healthChangesProvider, (_, next) {
+    if (next is AsyncData) {
+      timer?.cancel();
+      timer = Timer(
+        const Duration(milliseconds: 350),
+        () => controller.add(null),
+      );
+    }
+  });
+
+  ref.onDispose(() {
+    timer?.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
+});
+
 /// The date shown on the dashboard. Defaults to today (midnight).
 final selectedDateProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
@@ -26,7 +53,7 @@ final selectedDateProvider = StateProvider<DateTime>((ref) {
 /// you need to know what is genuinely recorded.
 final rawTodaySummaryProvider =
     FutureProvider<Map<HealthMetricType, double>>((ref) async {
-  ref.watch(healthChangesProvider);
+  ref.watch(_healthChangesDebouncedProvider);
   final date = ref.watch(selectedDateProvider);
   return ref.watch(healthRepositoryProvider).summaryForDate(date);
 });
@@ -61,7 +88,7 @@ final demoFilledTypesProvider =
 
 final dailySeriesProvider = FutureProvider.family<List<DailyPoint>,
     ({HealthMetricType type, int days})>((ref, arg) async {
-  ref.watch(healthChangesProvider);
+  ref.watch(_healthChangesDebouncedProvider);
   final series = await ref
       .watch(healthRepositoryProvider)
       .dailySeries(arg.type, days: arg.days);
@@ -71,7 +98,7 @@ final dailySeriesProvider = FutureProvider.family<List<DailyPoint>,
 
 final monthlySeriesProvider = FutureProvider.family<List<DailyPoint>,
     ({HealthMetricType type, int months})>((ref, arg) async {
-  ref.watch(healthChangesProvider);
+  ref.watch(_healthChangesDebouncedProvider);
   final series = await ref
       .watch(healthRepositoryProvider)
       .monthlySeries(arg.type, months: arg.months);
@@ -88,7 +115,7 @@ final monthlySeriesProvider = FutureProvider.family<List<DailyPoint>,
 final recordsForTypeProvider =
     FutureProvider.family<List<HealthRecord>, HealthMetricType>(
         (ref, type) async {
-  ref.watch(healthChangesProvider);
+  ref.watch(_healthChangesDebouncedProvider);
   final records = await ref.watch(healthRepositoryProvider).recordsForType(type);
   if (records.isNotEmpty) return records;
   return DemoHealthData.records(type);

@@ -239,7 +239,27 @@ class InsightCard extends ConsumerWidget {
     final subtle = isDark ? NeuColors.darkTextMuted : NeuColors.textSecondary;
     final trackColor =
         isDark ? NeuColors.darkBorder : const Color(0xFFEDE5DC);
-    final summary = ref.watch(todaySummaryProvider);
+
+    // Always render the full layout — use an empty map while loading so the
+    // card never swaps its structure for a spinner (no layout shift or flicker).
+    final values = ref.watch(todaySummaryProvider).valueOrNull
+        ?? const <HealthMetricType, double>{};
+
+    final sleepVal = values[HealthMetricType.sleep] ?? 0.0;
+    final sleepText = sleepVal > 0 ? _formatSleepHours(sleepVal) : '--';
+
+    final nonZeroVals = values.values.where((v) => v > 0).toList();
+    final overall = nonZeroVals.isEmpty
+        ? 0.0
+        : (nonZeroVals.reduce((a, b) => a + b) / nonZeroVals.length / 100)
+            .clamp(0.0, 1.0);
+
+    final glucoseVal = values[HealthMetricType.bloodGlucose] ?? 0.0;
+    final stepsVal = values[HealthMetricType.steps] ?? 0.0;
+
+    final glucoseScore = (glucoseVal / 200.0).clamp(0.0, 1.0);
+    final stepsScore = (stepsVal / 10000.0).clamp(0.0, 1.0);
+    final sleepScore = (sleepVal / 8.0).clamp(0.0, 1.0);
 
     return Container(
       padding: EdgeInsets.all(20.r),
@@ -250,170 +270,115 @@ class InsightCard extends ConsumerWidget {
           color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder,
         ),
       ),
-      child: summary.when(
-        // Keep the last values on screen while a re-query runs. Without
-        // skipLoadingOnReload an invalidation swaps the whole card for a
-        // spinner, which read as a flash on every sync.
-        skipLoadingOnRefresh: true,
-        skipLoadingOnReload: true,
-        loading: () => Center(
-          child: Padding(
-            padding: EdgeInsets.all(20.r),
-            child: CircularProgressIndicator(
-              color: NeuColors.primary,
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-        error: (e, _) => Text(
-          'Unable to load scores',
-          style: TextStyle(color: subtle, fontSize: 12.sp),
-        ),
-        data: (values) {
-          final sleepVal = values[HealthMetricType.sleep] ?? 0.0;
-          final sleepText = sleepVal > 0 ? _formatSleepHours(sleepVal) : '--';
-
-          final nonZeroVals = values.values.where((v) => v > 0).toList();
-          final overall = nonZeroVals.isEmpty
-              ? 0.0
-              : (nonZeroVals.reduce((a, b) => a + b) /
-                      nonZeroVals.length /
-                      100)
-                  .clamp(0.0, 1.0);
-
-          final glucoseVal = values[HealthMetricType.bloodGlucose] ?? 0.0;
-          final stepsVal = values[HealthMetricType.steps] ?? 0.0;
-
-          final glucoseScore = (glucoseVal / 200.0).clamp(0.0, 1.0);
-          final stepsScore = (stepsVal / 10000.0).clamp(0.0, 1.0);
-          final sleepScore = (sleepVal / 8.0).clamp(0.0, 1.0);
-
-          return Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row: sleep value + "On Track" pill
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: sleep value + "On Track" pill
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sleepText,
-                        style: NeuTypography.serif(
-                          fontSize: 22.sp,
-                          color: fg,
-                        ),
-                      ),
-                      Text(
-                        'Steady',
-                        style: NeuTypography.sans(
-                          fontSize: 13.sp,
-                          color: subtle,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    sleepText,
+                    style: NeuTypography.serif(fontSize: 22.sp, color: fg),
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 12.w, vertical: 6.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(
-                        color:
-                            const Color(0xFF2E7D32).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Text(
-                      'On Track',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: const Color(0xFF2E7D32),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  Text(
+                    'Steady',
+                    style: NeuTypography.sans(fontSize: 13.sp, color: subtle),
                   ),
                 ],
               ),
-              SizedBox(height: 16.h),
-
-              // Gauge
-              SizedBox(
-                width: double.infinity,
-                height: 110.r,
-                child: CustomPaint(
-                  painter: _GaugePainter(
-                    progress: overall.clamp(0.0, 1.0),
-                    trackColor: trackColor,
-                    fillColor: NeuColors.primary,
+              const Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
                   ),
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 8.h),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${(overall * 100).round()}%',
-                            style: NeuTypography.serif(
-                              fontSize: 24.sp,
-                              color: fg,
-                            ),
-                          ),
-                          Text(
-                            'Time in range',
-                            style: NeuTypography.sans(
-                              fontSize: 12.sp,
-                              color: subtle,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                ),
+                child: Text(
+                  'On Track',
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: const Color(0xFF2E7D32),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              SizedBox(height: 12.h),
-              Divider(
-                  color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder),
-              SizedBox(height: 12.h),
+            ],
+          ),
+          SizedBox(height: 16.h),
 
-              // Score circles row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _ScoreCircle(
-                    label: 'Glucose',
-                    score: glucoseScore,
-                    color: NeuColors.primary,
-                    trackColor: trackColor,
-                    fg: fg,
-                    subtle: subtle,
+          // Gauge
+          SizedBox(
+            width: double.infinity,
+            height: 110.r,
+            child: CustomPaint(
+              painter: _GaugePainter(
+                progress: overall.clamp(0.0, 1.0),
+                trackColor: trackColor,
+                fillColor: NeuColors.primary,
+              ),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${(overall * 100).round()}%',
+                        style: NeuTypography.serif(fontSize: 24.sp, color: fg),
+                      ),
+                      Text(
+                        'Time in range',
+                        style: NeuTypography.sans(fontSize: 12.sp, color: subtle),
+                      ),
+                    ],
                   ),
-                  _ScoreCircle(
-                    label: 'Movement',
-                    score: stepsScore,
-                    color: const Color(0xFF8D9E39),
-                    trackColor: trackColor,
-                    fg: fg,
-                    subtle: subtle,
-                  ),
-                  _ScoreCircle(
-                    label: 'Sleep',
-                    score: sleepScore,
-                    color: const Color(0xFF4A7C59),
-                    trackColor: trackColor,
-                    fg: fg,
-                    subtle: subtle,
-                  ),
-                ],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Divider(color: isDark ? NeuColors.darkBorder : NeuColors.inputBorder),
+          SizedBox(height: 12.h),
+
+          // Score circles row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _ScoreCircle(
+                label: 'Glucose',
+                score: glucoseScore,
+                color: NeuColors.primary,
+                trackColor: trackColor,
+                fg: fg,
+                subtle: subtle,
+              ),
+              _ScoreCircle(
+                label: 'Movement',
+                score: stepsScore,
+                color: const Color(0xFF8D9E39),
+                trackColor: trackColor,
+                fg: fg,
+                subtle: subtle,
+              ),
+              _ScoreCircle(
+                label: 'Sleep',
+                score: sleepScore,
+                color: const Color(0xFF4A7C59),
+                trackColor: trackColor,
+                fg: fg,
+                subtle: subtle,
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
